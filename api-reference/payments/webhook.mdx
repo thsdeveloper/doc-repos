@@ -1,0 +1,230 @@
+---
+title: "POST /api/payments/webhooks/abacatepay — Payment Webhook"
+sidebarTitle: "Webhook"
+description: "POST /api/payments/webhooks/abacatepay — receives signed payment events from AbacatePay. Validates HMAC-SHA256 signature before processing."
+---
+
+This endpoint is called **by AbacatePay**, not by your application directly. When a payment event occurs — such as a checkout being completed or a payout being processed — AbacatePay sends a signed HTTP POST request to this URL. The server validates the request's authenticity using two independent security checks before processing the event, ensuring that only genuine messages from AbacatePay can update registration and payout state.
+
+<Warning>
+  Do **not** call this endpoint from your own application or frontend. It is an inbound webhook exclusively for use by AbacatePay's payment infrastructure. Calling it directly without valid credentials will result in a `401` response.
+</Warning>
+
+## Endpoint
+
+```
+POST /api/payments/webhooks/abacatepay
+```
+
+## Security
+
+All requests must pass **both** of the following checks or the server responds with `401 Unauthorized`:
+
+### 1. Webhook Secret Query Parameter
+
+AbacatePay must include `?webhookSecret=YOUR_SECRET` in the request URL. This value must exactly match the `ABACATEPAY_WEBHOOK_SECRET` environment variable configured on the server.
+
+### 2. HMAC-SHA256 Signature Header
+
+The request must include either an `X-Webhook-Signature` or `X-Abacate-Signature` header containing an HMAC-SHA256 signature computed over the **raw request body**. The server recalculates the expected signature and rejects the request if the values do not match.
+
+<Note>
+  The endpoint is registered with `rawBody: true` — it reads the unparsed byte stream before any JSON parsing so the HMAC calculation is performed against the exact bytes received.
+</Note>
+
+## Supported Event Types
+
+| Event | Trigger |
+|-------|---------|
+| `checkout.completed` | A hosted checkout session was paid successfully. |
+| `checkout.refunded` | A checkout payment was refunded. |
+| `checkout.disputed` | A dispute was opened against a checkout payment. |
+| `checkout.lost` | A checkout dispute was decided in the payer's favour. |
+| `transparent.completed` | A transparent (direct) PIX charge was paid. |
+| `transparent.refunded` | A transparent charge was refunded. |
+| `transparent.disputed` | A dispute was opened on a transparent charge. |
+| `transparent.lost` | A transparent charge dispute was lost. |
+| `payout.completed` | A payout to an organizer's PIX key was successful. |
+| `payout.failed` | A payout attempt failed. |
+| `transfer.completed` | A transfer operation completed. |
+| `transfer.failed` | A transfer operation failed. |
+
+## Webhook Payload Schema
+
+<ParamField body="id" type="string">
+  Optional identifier for this webhook event, provided by AbacatePay.
+</ParamField>
+
+<ParamField body="event" type="string" required>
+  The event type string (see table above).
+</ParamField>
+
+<ParamField body="data" type="object" required>
+  Event-specific data. All nested fields are optional and depend on the event type.
+
+  <ParamField body="data.id" type="string">
+    Identifier of the primary object affected by this event.
+  </ParamField>
+
+  <ParamField body="data.externalId" type="string">
+    Your system's external reference ID as stored in AbacatePay.
+  </ParamField>
+
+  <ParamField body="data.receiptUrl" type="string (URL) | null">
+    URL of the payment receipt, when applicable.
+  </ParamField>
+
+  <ParamField body="data.reason" type="string">
+    Human-readable reason for the event (e.g. refund reason, dispute reason).
+  </ParamField>
+
+  <ParamField body="data.checkout" type="object">
+    Present for `checkout.*` events.
+
+    <ParamField body="data.checkout.id" type="string" required>
+      AbacatePay checkout session ID.
+    </ParamField>
+
+    <ParamField body="data.checkout.externalId" type="string">
+      Your system's reference ID for this checkout.
+    </ParamField>
+
+    <ParamField body="data.checkout.platformFee" type="number | string">
+      Platform fee charged on this checkout, in BRL.
+    </ParamField>
+
+    <ParamField body="data.checkout.methods" type="array of strings">
+      Payment methods used (e.g. `["pix"]`).
+    </ParamField>
+  </ParamField>
+
+  <ParamField body="data.transparent" type="object">
+    Present for `transparent.*` events.
+
+    <ParamField body="data.transparent.id" type="string" required>
+      AbacatePay transparent charge ID.
+    </ParamField>
+
+    <ParamField body="data.transparent.externalId" type="string">
+      Your system's reference for this charge.
+    </ParamField>
+
+    <ParamField body="data.transparent.platformFee" type="number | string">
+      Platform fee on this charge.
+    </ParamField>
+  </ParamField>
+
+  <ParamField body="data.payout" type="object">
+    Present for `payout.*` events.
+
+    <ParamField body="data.payout.id" type="string" required>
+      AbacatePay payout ID.
+    </ParamField>
+
+    <ParamField body="data.payout.externalId" type="string">
+      External reference for the payout.
+    </ParamField>
+
+    <ParamField body="data.payout.receiptUrl" type="string (URL) | null">
+      URL of the payout receipt.
+    </ParamField>
+
+    <ParamField body="data.payout.reason" type="string">
+      Reason for failure (present on `payout.failed`).
+    </ParamField>
+  </ParamField>
+
+  <ParamField body="data.transfer" type="object">
+    Present for `transfer.*` events.
+
+    <ParamField body="data.transfer.id" type="string" required>
+      AbacatePay transfer ID.
+    </ParamField>
+
+    <ParamField body="data.transfer.externalId" type="string">
+      External reference for the transfer.
+    </ParamField>
+
+    <ParamField body="data.transfer.receiptUrl" type="string (URL) | null">
+      URL of the transfer receipt.
+    </ParamField>
+
+    <ParamField body="data.transfer.reason" type="string">
+      Reason for failure (present on `transfer.failed`).
+    </ParamField>
+  </ParamField>
+</ParamField>
+
+## Response Codes
+
+| HTTP Status | Condition |
+|-------------|-----------|
+| `200` | Payload processed successfully. AbacatePay will not retry. |
+| `400` | Payload could not be parsed as valid JSON or failed schema validation. |
+| `401` | Webhook secret query param is missing/invalid **or** the HMAC-SHA256 signature does not match. |
+
+<Tip>
+  This endpoint is **idempotent**. AbacatePay may deliver the same event more than once in cases of network failure. The server deduplicates events by provider transaction ID, so retries are safe and will not result in duplicate registrations or payouts.
+</Tip>
+
+## Configuring the Webhook in AbacatePay
+
+1. Log in to your AbacatePay dashboard.
+2. Navigate to **Webhooks** → **Add Endpoint**.
+3. Set the URL to `https://api.events-manager.app/api/payments/webhooks/abacatepay?webhookSecret=YOUR_SECRET`.
+4. Select all event types you want to receive (see the table above for the full list).
+5. Copy the signing secret shown after saving and set it as the `ABACATEPAY_WEBHOOK_SECRET` environment variable on your API server.
+
+## Example Payload
+
+<CodeGroup>
+
+```json checkout.completed Event
+{
+  "id": "evt_01j9abc123def456",
+  "event": "checkout.completed",
+  "data": {
+    "id": "reg_01j9xyz789ghi012",
+    "externalId": "e5f6a7b8-c9d0-1234-efab-345678901234",
+    "receiptUrl": "https://receipts.abacatepay.com/checkout_abc123.pdf",
+    "checkout": {
+      "id": "checkout_abc123xyz",
+      "externalId": "d4e5f6a7-b8c9-0123-defa-234567890123",
+      "platformFee": 7.50,
+      "methods": ["pix"]
+    }
+  }
+}
+```
+
+```json payout.completed Event
+{
+  "id": "evt_01j9payout99",
+  "event": "payout.completed",
+  "data": {
+    "payout": {
+      "id": "payout_zyx987",
+      "externalId": "org-payout-2024-09",
+      "receiptUrl": "https://receipts.abacatepay.com/payout_zyx987.pdf"
+    }
+  }
+}
+```
+
+```json transparent.completed Event
+{
+  "id": "evt_01j9transparent55",
+  "event": "transparent.completed",
+  "data": {
+    "id": "reg_installment_002",
+    "externalId": "f1a2b3c4-d5e6-7890-fghi-222222222222",
+    "transparent": {
+      "id": "charge_trans_001",
+      "externalId": "f1a2b3c4-d5e6-7890-fghi-222222222222",
+      "platformFee": 1.50
+    }
+  }
+}
+```
+
+</CodeGroup>

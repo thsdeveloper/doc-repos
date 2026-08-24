@@ -1,0 +1,194 @@
+---
+title: "POST /api/admin/ingressos — Create a Ticket Type"
+sidebarTitle: "Create Ticket"
+description: "POST /api/admin/ingressos — add a ticket type to an event. Configure price, quantity, sale window, visibility, and installment options."
+---
+
+A ticket type defines a purchasable tier for your event — for example, `"Ingresso Padrão"`, `"VIP"`, or `"Meia-Entrada"`. You can add multiple ticket types to a single event. Each type has its own price, stock, sale window, and visibility rules. The platform calculates the final `buyer_price` automatically based on the `service_fee_type` you choose: either the fee is absorbed into the price you set, or it is added on top and passed to the buyer at checkout.
+
+## Endpoint
+
+```
+POST /api/admin/ingressos
+```
+
+**Authentication required.** Your organizer profile must have `status: active`. The `event_id` you supply must belong to your organizer account.
+
+## Request Body
+
+<ParamField body="event_id" type="string (UUID)" required>
+  UUID of the event this ticket type belongs to. The event must be owned by your organizer account.
+</ParamField>
+
+<ParamField body="title" type="string" required>
+  Name of the ticket type shown to buyers, e.g. `"Ingresso Padrão"` or `"VIP"`. Minimum 1 character.
+</ParamField>
+
+<ParamField body="quantity" type="integer" required>
+  Total number of tickets available for sale. Must be a positive integer.
+</ParamField>
+
+<ParamField body="price" type="number" required>
+  The organizer net price in BRL (Brazilian Real). This is the amount you receive per ticket sold, before any platform fees. Must be non-negative (`0` for free tickets).
+</ParamField>
+
+<ParamField body="service_fee_type" type="string" required>
+  How the platform service fee is handled:
+  - `absorbed` — the fee comes out of your `price`; the buyer pays exactly `price`.
+  - `passed_to_buyer` — the fee is added on top; the buyer pays `price + fee`. The `buyer_price` field in the response reflects the final amount charged.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Optional details about the ticket, e.g. what's included or any restrictions. Pass `null` to leave blank.
+</ParamField>
+
+<ParamField body="status" type="string" default="active">
+  Initial status of the ticket type. One of `active`, `sold_out`, or `inactive`. Defaults to `active` if omitted.
+</ParamField>
+
+<ParamField body="visibility" type="string" default="public">
+  Controls who can see and purchase this ticket type:
+  - `public` — visible to all buyers.
+  - `invited_only` — only buyers with a direct link or invitation can see it.
+  - `manual` — hidden from buyers; you add registrations manually.
+</ParamField>
+
+<ParamField body="sale_start_date" type="string (ISO 8601)">
+  Datetime when this ticket type goes on sale. Pass `null` to start selling immediately when the event is published.
+</ParamField>
+
+<ParamField body="sale_end_date" type="string (ISO 8601)">
+  Datetime when sales for this ticket type close. Must be after `sale_start_date` when both are provided. Pass `null` to follow the event's `registration_end`.
+</ParamField>
+
+<ParamField body="min_quantity_per_purchase" type="integer">
+  Minimum number of this ticket a buyer must add to their cart in a single purchase. Defaults to `1` if omitted.
+</ParamField>
+
+<ParamField body="max_quantity_per_purchase" type="integer">
+  Maximum number of this ticket a buyer can purchase in one transaction. Must be greater than or equal to `min_quantity_per_purchase`.
+</ParamField>
+
+<ParamField body="allow_installments" type="boolean" default="false">
+  Set to `true` to enable PIX installment payments for this ticket type. When `true`, `max_installments` is required.
+</ParamField>
+
+<ParamField body="max_installments" type="integer">
+  Maximum number of PIX installments a buyer can choose. Required when `allow_installments` is `true`. Must be between **2** and **12**.
+</ParamField>
+
+<ParamField body="min_amount_for_installments" type="number">
+  Minimum `buyer_price` required before the installment option is shown to buyers. Useful to suppress installments for low-value tickets. Must be non-negative. Pass `null` to allow installments at any price.
+</ParamField>
+
+## Response
+
+Returns **HTTP 201 Created** with the full ticket type object.
+
+<ResponseField name="id" type="string (UUID)">
+  Server-assigned unique identifier for the ticket type.
+</ResponseField>
+
+<ResponseField name="event_id" type="string (UUID)">
+  The event this ticket type belongs to.
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  Name of the ticket type.
+</ResponseField>
+
+<ResponseField name="price" type="number">
+  Organizer net price (what you receive per sale).
+</ResponseField>
+
+<ResponseField name="buyer_price" type="number | null">
+  Final price charged to the buyer, calculated automatically from `price` and the platform's service fee configuration. This is the value you should display to buyers.
+</ResponseField>
+
+<ResponseField name="service_fee_type" type="string">
+  Fee handling mode: `absorbed` or `passed_to_buyer`.
+</ResponseField>
+
+<ResponseField name="quantity" type="integer">
+  Total stock available.
+</ResponseField>
+
+<ResponseField name="quantity_sold" type="integer">
+  Number of tickets sold so far. Always `0` on creation.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Current status: `active`, `sold_out`, or `inactive`.
+</ResponseField>
+
+<ResponseField name="allow_installments" type="boolean">
+  Whether PIX installments are enabled.
+</ResponseField>
+
+<ResponseField name="max_installments" type="integer | null">
+  Maximum installment count when `allow_installments` is `true`.
+</ResponseField>
+
+## Error Responses
+
+| HTTP Status | Error Code | Description |
+|---|---|---|
+| `403 Forbidden` | `ORGANIZER_REQUIRED` | Your organizer profile is not active or the event does not belong to your account. |
+| `400 Bad Request` | — | Validation failed (e.g. `max_installments` missing when `allow_installments` is `true`, or `sale_end_date` before `sale_start_date`). |
+
+<Note>
+  The platform applies a percentage-based service fee configured by the platform administrator. The exact `buyer_price` depends on the live fee settings at the time of ticket creation. Check `GET /api/admin/event-configurations` to see the current fee structure.
+</Note>
+
+## Example
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://api.events-manager.com/api/admin/ingressos \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_id": "b3d2f1a0-0001-4e3c-a1b2-000000000001",
+    "title": "Ingresso Padrão",
+    "description": "Acesso completo ao evento com coffee break incluso.",
+    "quantity": 100,
+    "price": 150.00,
+    "service_fee_type": "passed_to_buyer",
+    "status": "active",
+    "visibility": "public",
+    "sale_start_date": null,
+    "sale_end_date": "2025-09-14T23:59:00-03:00",
+    "min_quantity_per_purchase": 1,
+    "max_quantity_per_purchase": 5,
+    "allow_installments": true,
+    "max_installments": 3,
+    "min_amount_for_installments": 50.00
+  }'
+```
+
+</CodeGroup>
+
+```json Sample Response — 201 Created
+{
+  "id": "t1e2c3k4-0001-4e5t-8a9b-000000000030",
+  "event_id": "b3d2f1a0-0001-4e3c-a1b2-000000000001",
+  "title": "Ingresso Padrão",
+  "description": "Acesso completo ao evento com coffee break incluso.",
+  "quantity": 100,
+  "quantity_sold": 0,
+  "price": 150.00,
+  "buyer_price": 157.50,
+  "service_fee_type": "passed_to_buyer",
+  "status": "active",
+  "visibility": "public",
+  "sale_start_date": null,
+  "sale_end_date": "2025-09-15T02:59:00.000Z",
+  "min_quantity_per_purchase": 1,
+  "max_quantity_per_purchase": 5,
+  "allow_installments": true,
+  "max_installments": 3,
+  "min_amount_for_installments": 50.00,
+  "date_created": "2025-07-01T14:35:00.000Z"
+}
+```

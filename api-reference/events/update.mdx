@@ -1,0 +1,168 @@
+---
+title: "PATCH /api/events/:id — Update an Event"
+sidebarTitle: "Update Event"
+description: "PATCH /api/events/:id — update an existing event you own. All request body fields are optional; only the fields you provide are changed."
+---
+
+The update endpoint lets you modify any field of an event you own without re-sending the entire object. Only the fields you include in the request body are changed — all other fields remain exactly as they are. This is the standard way to promote an event from `draft` to `published`, correct a typo in the description, change the venue, or update the dates after they've been set.
+
+## Endpoint
+
+```
+PATCH /api/events/:id
+```
+
+**Authentication required.** You must be authenticated as the organizer who created the event. Attempting to update an event that belongs to a different organizer will result in a `404 EVENT_NOT_FOUND` error.
+
+## Path Parameters
+
+<ParamField path="id" type="string (UUID)" required>
+  The unique identifier of the event to update. You can find this in the response from [POST /api/events](/api-reference/events/create) or [GET /api/events](/api-reference/events/list-public).
+</ParamField>
+
+## Request Body
+
+All fields are optional. Include only the fields you want to change.
+
+<ParamField body="title" type="string">
+  New display name for the event. Minimum 3 characters.
+</ParamField>
+
+<ParamField body="slug" type="string">
+  New URL-friendly identifier. Must match `^[a-z0-9]+(?:-[a-z0-9]+)*$` and be at least 3 characters. Changing the slug will break any existing deep links to the event detail page — update with caution.
+</ParamField>
+
+<ParamField body="status" type="string">
+  New lifecycle status. One of `published`, `draft`, `cancelled`, or `archived`. Changing from `draft` to `published` makes the event visible in public listings immediately.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Updated full description. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="short_description" type="string">
+  Updated short summary. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="cover_image" type="string (UUID)">
+  UUID of the new cover image file. Pass `null` to remove the current cover.
+</ParamField>
+
+<ParamField body="category_id" type="string (UUID)">
+  UUID of the new category. Pass `null` to remove the category.
+</ParamField>
+
+<ParamField body="event_type" type="string">
+  Updated event format. One of `in_person`, `online`, or `hybrid`.
+</ParamField>
+
+<ParamField body="start_date" type="string (ISO 8601)">
+  Updated event start datetime. When updating dates, ensure `end_date` (whether sent in this request or already stored) remains after `start_date`.
+</ParamField>
+
+<ParamField body="end_date" type="string (ISO 8601)">
+  Updated event end datetime. Must be after `start_date`.
+</ParamField>
+
+<ParamField body="location_name" type="string">
+  Updated venue name. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="location_address" type="string">
+  Updated full street address. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="online_url" type="string (URL)">
+  Updated online meeting link. Must be a valid HTTP/HTTPS URL. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="max_attendees" type="integer">
+  Updated attendee capacity. Pass `null` for unlimited.
+</ParamField>
+
+<ParamField body="registration_start" type="string (ISO 8601)">
+  Updated registration open datetime. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="registration_end" type="string (ISO 8601)">
+  Updated registration close datetime. Must be after `registration_start`. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="is_free" type="boolean">
+  Update the free-event flag.
+</ParamField>
+
+<ParamField body="featured" type="boolean">
+  Update featured placement flag.
+</ParamField>
+
+<ParamField body="tags" type="string[]">
+  Replaces the entire tags array. To add a tag, send the full updated array including existing tags.
+</ParamField>
+
+## Response
+
+Returns **HTTP 200 OK** with the full updated event object. The response shape is identical to [Get Event by Slug](/api-reference/events/get-by-slug).
+
+## Error Responses
+
+| HTTP Status | Error Code | Description |
+|---|---|---|
+| `404 Not Found` | `EVENT_NOT_FOUND` | No event with the given `id` exists under your organizer account. |
+| `403 Forbidden` | `ORGANIZER_REQUIRED` | Your organizer profile is not active. |
+| `400 Bad Request` | — | Validation error, e.g. `end_date` not after `start_date`. |
+
+## Common Use Cases
+
+**Publish a draft event** — set `status` to `published` once the event page is ready and tickets have been configured:
+
+**Update the description** — send only the `description` field; all other event data is untouched.
+
+**Reschedule** — update `start_date` and `end_date` together in a single request.
+
+<Warning>
+  Changing the `slug` of a published event will break any URLs or links your attendees have already saved. If you must rename the slug, do so before the event goes live.
+</Warning>
+
+## Examples
+
+<CodeGroup>
+
+```bash cURL — publish a draft event
+curl -X PATCH https://api.events-manager.com/api/events/b3d2f1a0-0001-4e3c-a1b2-000000000001 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "published"}'
+```
+
+```bash cURL — update description and dates
+curl -X PATCH https://api.events-manager.com/api/events/b3d2f1a0-0001-4e3c-a1b2-000000000001 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "<p>Conteúdo atualizado com nova programação.</p>",
+    "start_date": "2025-09-20T09:00:00-03:00",
+    "end_date": "2025-09-20T18:00:00-03:00"
+  }'
+```
+
+```bash cURL — cancel an event
+curl -X PATCH https://api.events-manager.com/api/events/b3d2f1a0-0001-4e3c-a1b2-000000000001 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "cancelled"}'
+```
+
+</CodeGroup>
+
+```json Sample Response — publish
+{
+  "id": "b3d2f1a0-0001-4e3c-a1b2-000000000001",
+  "title": "Workshop de UX Design",
+  "slug": "workshop-ux-design-2025",
+  "status": "published",
+  "start_date": "2025-09-15T12:00:00.000Z",
+  "end_date": "2025-09-15T21:00:00.000Z",
+  "date_updated": "2025-07-02T10:15:00.000Z"
+}
+```

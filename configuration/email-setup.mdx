@@ -1,0 +1,153 @@
+---
+title: "Set Up Transactional Email for Events Manager"
+sidebarTitle: "Email Setup"
+description: "Configure SMTP to send registration confirmations, password resets, and other transactional emails from your Events Manager instance."
+---
+
+Events Manager sends transactional emails at key points in the user journey — when someone creates an account, purchases a ticket, or requests a password reset. These emails are delivered through a standard SMTP connection, which means you can use any provider that exposes an SMTP interface, from local development mail catchers to production services like SendGrid, Postmark, or Amazon SES.
+
+## Emails Events Manager Sends
+
+| Email | Trigger |
+|---|---|
+| **Account verification (OTP)** | Sent when a new user registers. Contains a 6-digit code to verify their email address. |
+| **Password reset link** | Sent when a user requests a password reset via the login page. |
+| **Registration confirmation** | Sent after a ticket purchase is confirmed. Contains the event details and unique ticket code. |
+
+<Note>
+  The registration confirmation email is controlled by the `registration_confirmation_email` flag in your platform's event configuration. This is enabled by default. See [Platform Fees & Configuration](/configuration/platform-fees) for admin-level settings.
+</Note>
+
+## SMTP Configuration Variables
+
+Set the following environment variables in your deployment environment:
+
+<ParamField body="SMTP_HOST" type="string" required>
+  The hostname of your SMTP server. Examples: `smtp.sendgrid.net`, `smtp.postmarkapp.com`, `email-smtp.us-east-1.amazonaws.com`.
+</ParamField>
+
+<ParamField body="SMTP_PORT" type="integer" required>
+  The TCP port for the SMTP connection:
+  - `465` — Implicit TLS (set `SMTP_SECURE=true`)
+  - `587` — STARTTLS (set `SMTP_SECURE=false`)
+  - `25` — Plain (not recommended for production)
+</ParamField>
+
+<ParamField body="SMTP_SECURE" type="boolean" default="false">
+  Set to `true` for implicit TLS connections (port 465). Set to `false` for STARTTLS or plain connections (port 587 or 25). Most modern SMTP providers use port 465 with `SMTP_SECURE=true`.
+</ParamField>
+
+<ParamField body="SMTP_USER" type="string">
+  SMTP authentication username. For SendGrid this is `apikey`; for Amazon SES it is your IAM access key ID.
+</ParamField>
+
+<ParamField body="SMTP_PASSWORD" type="string">
+  SMTP authentication password. For SendGrid this is your API key value; for Amazon SES it is your IAM secret access key.
+</ParamField>
+
+<ParamField body="EMAIL_FROM" type="string" required>
+  The sender name and email address shown in the "From" header of all outgoing emails. Must use the format:
+
+  ```
+  Display Name <address@yourdomain.com>
+  ```
+
+  Example: `My Event Platform <tickets@myplatform.com>`. The domain must be verified with your email provider to avoid deliverability issues.
+</ParamField>
+
+## Local Development: Mailpit Mail Catcher
+
+During local development, the Supabase stack bundles **Mailpit** (a lightweight mail catcher) that intercepts all outgoing SMTP traffic without actually sending anything to real email addresses. The default `.env.example` is pre-configured to use it:
+
+```dotenv title="Local SMTP settings"
+SMTP_HOST=127.0.0.1
+SMTP_PORT=55325
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASSWORD=
+EMAIL_FROM=Events Manager <hello@events.local>
+```
+
+You can view all captured emails by opening the Mailpit web UI in your browser:
+
+```text title="Mailpit UI"
+http://localhost:55324
+```
+
+<Tip>
+  Mailpit is perfect for testing the full registration flow without risking accidental email delivery to real users. All OTP codes, confirmation links, and ticket codes will appear in the Mailpit inbox within seconds of being triggered.
+</Tip>
+
+## Production SMTP Providers
+
+For production deployments, choose a transactional email provider and configure the variables accordingly:
+
+<CardGroup cols={2}>
+  <Card title="SendGrid" icon="paper-plane">
+    ```dotenv
+    SMTP_HOST=smtp.sendgrid.net
+    SMTP_PORT=465
+    SMTP_SECURE=true
+    SMTP_USER=apikey
+    SMTP_PASSWORD=SG.your_api_key_here
+    EMAIL_FROM=Platform <no-reply@yourdomain.com>
+    ```
+  </Card>
+  <Card title="Postmark" icon="envelope">
+    ```dotenv
+    SMTP_HOST=smtp.postmarkapp.com
+    SMTP_PORT=587
+    SMTP_SECURE=false
+    SMTP_USER=your_server_token
+    SMTP_PASSWORD=your_server_token
+    EMAIL_FROM=Platform <no-reply@yourdomain.com>
+    ```
+  </Card>
+  <Card title="Amazon SES" icon="aws">
+    ```dotenv
+    SMTP_HOST=email-smtp.us-east-1.amazonaws.com
+    SMTP_PORT=465
+    SMTP_SECURE=true
+    SMTP_USER=AKIAIOSFODNN7EXAMPLE
+    SMTP_PASSWORD=your_ses_smtp_password
+    EMAIL_FROM=Platform <no-reply@yourdomain.com>
+    ```
+  </Card>
+  <Card title="Resend" icon="bolt">
+    ```dotenv
+    SMTP_HOST=smtp.resend.com
+    SMTP_PORT=465
+    SMTP_SECURE=true
+    SMTP_USER=resend
+    SMTP_PASSWORD=re_your_api_key_here
+    EMAIL_FROM=Platform <no-reply@yourdomain.com>
+    ```
+  </Card>
+</CardGroup>
+
+<Warning>
+  Make sure the domain in `EMAIL_FROM` is verified with your provider (SPF, DKIM, and optionally DMARC). Unverified sender domains will result in emails landing in spam or being rejected outright.
+</Warning>
+
+## The 6-Digit OTP Verification Flow
+
+When a new user registers, Events Manager sends them a **6-digit one-time password (OTP)** to confirm their email address. The flow is:
+
+<Steps>
+  <Step title="User submits registration form">
+    The user provides their name, email address, and password.
+  </Step>
+  <Step title="OTP email is sent">
+    The platform generates a 6-digit code valid for a short window (typically 10 minutes) and sends it to the provided email address via your configured SMTP server.
+  </Step>
+  <Step title="User enters the code">
+    The registration flow prompts the user to enter the 6-digit code from their inbox. This confirms that they own the email address.
+  </Step>
+  <Step title="Account is activated">
+    Once the code is verified, the account is fully activated and the user is logged in automatically.
+  </Step>
+</Steps>
+
+<Note>
+  The OTP is delivered through the same SMTP pipeline as all other transactional emails. If email delivery is not working, new users will not be able to complete registration. Always test your SMTP configuration before going live.
+</Note>

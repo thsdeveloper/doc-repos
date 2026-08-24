@@ -1,0 +1,228 @@
+---
+title: "POST /api/checkout/installments — PIX Installment Checkout"
+sidebarTitle: "Installments"
+description: "POST /api/checkout/installments — create a PIX installment plan for a ticket. Returns installment schedule with PIX codes for each payment."
+---
+
+For ticket types that support installment payments, this endpoint lets you split the purchase into multiple PIX charges spread across calendar months. You specify the ticket, desired number of installments (2–12), and the participant's contact details. The API creates a registration, calculates the installment schedule, and returns the first installment's PIX QR code and copy-paste code so the attendee can pay immediately. Subsequent installment PIX codes can be generated on demand using the generate-pix endpoint described below.
+
+<Note>
+  Both endpoints on this page require a valid user session. Include your Bearer token in the `Authorization` header. The ticket type must have `allow_installments: true` and a configured `max_installments` value, otherwise the request will be rejected.
+</Note>
+
+## Create Installment Checkout
+
+### Endpoint
+
+```
+POST /api/checkout/installments
+```
+
+### Request Body
+
+<ParamField body="ticket_id" type="string (UUID)" required>
+  UUID of the ticket type to purchase on installments.
+</ParamField>
+
+<ParamField body="quantity" type="integer" required>
+  Number of tickets to purchase. Must be a positive integer (≥ 1).
+</ParamField>
+
+<ParamField body="installments" type="integer" required>
+  Number of installment payments to create. Must be between **2** and **12** (inclusive).
+</ParamField>
+
+<ParamField body="participant_name" type="string" required>
+  Full name of the lead participant. Must not be empty after trimming whitespace.
+</ParamField>
+
+<ParamField body="participant_email" type="string" required>
+  Valid email address for the participant. Used for confirmation emails and installment reminders.
+</ParamField>
+
+<ParamField body="participant_phone" type="string">
+  Phone number of the participant (optional).
+</ParamField>
+
+<ParamField body="participant_document" type="string">
+  CPF, CNPJ, or other document number (optional). Required by some events for check-in validation.
+</ParamField>
+
+### Response
+
+The response includes the created registration record (with `is_installment_payment: true`) and an `installments` array describing the full payment schedule. The **first installment** will already contain a `pix_qr_code_base64` image and a `pix_copy_paste` string so the attendee can pay immediately.
+
+<ResponseField name="registration" type="object">
+  The newly created `EventRegistration` record.
+
+  <ResponseField name="registration.id" type="string (UUID)">
+    Registration UUID.
+  </ResponseField>
+
+  <ResponseField name="registration.status" type="string">
+    Initial status, typically `pending` until the first installment is confirmed.
+  </ResponseField>
+
+  <ResponseField name="registration.total_installments" type="integer">
+    Total number of installments agreed at checkout.
+  </ResponseField>
+
+  <ResponseField name="registration.installment_plan_status" type="string">
+    Status of the overall plan: `active`, `completed`, or `defaulted`.
+  </ResponseField>
+
+  <ResponseField name="registration.installments" type="array">
+    Ordered list of `PaymentInstallment` objects.
+
+    <ResponseField name="registration.installments[].id" type="string (UUID)">
+      Unique identifier of this installment.
+    </ResponseField>
+
+    <ResponseField name="registration.installments[].installment_number" type="integer">
+      Position in the schedule, starting at 1.
+    </ResponseField>
+
+    <ResponseField name="registration.installments[].total_installments" type="integer">
+      Total installments in the plan (repeated on each item for convenience).
+    </ResponseField>
+
+    <ResponseField name="registration.installments[].amount" type="number">
+      Amount due for this installment in BRL.
+    </ResponseField>
+
+    <ResponseField name="registration.installments[].due_date" type="string (ISO 8601)">
+      Due date for this installment.
+    </ResponseField>
+
+    <ResponseField name="registration.installments[].status" type="string">
+      Payment status: `pending`, `paid`, `overdue`, or `cancelled`.
+    </ResponseField>
+
+    <ResponseField name="registration.installments[].pix_qr_code_base64" type="string | null">
+      Base64-encoded PNG of the PIX QR code. Present on installment 1 at creation time; generated on demand for subsequent installments.
+    </ResponseField>
+
+    <ResponseField name="registration.installments[].pix_copy_paste" type="string | null">
+      Full PIX copy-paste (copia e cola) string. `null` until the PIX code has been generated.
+    </ResponseField>
+
+    <ResponseField name="registration.installments[].paid_at" type="string | null">
+      ISO timestamp of when this installment was paid. `null` if not yet paid.
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+---
+
+## Generate PIX for a Specific Installment
+
+When an installment's PIX code has expired or the attendee needs a fresh code for an overdue installment, call this endpoint to generate a new one.
+
+### Endpoint
+
+```
+POST /api/installments/:id/generate-pix
+```
+
+### Path Parameter
+
+<ParamField path="id" type="string (UUID)" required>
+  The UUID of the `PaymentInstallment` for which you want to generate a new PIX code.
+</ParamField>
+
+### Response
+
+Returns the updated `PaymentInstallment` object with freshly generated `pix_qr_code_base64` and `pix_copy_paste` fields.
+
+<Warning>
+  Only the owner of the registration linked to the installment can request a new PIX code. Attempting to generate a PIX code for an installment belonging to another user returns `403 Forbidden`.
+</Warning>
+
+## Error Responses
+
+| HTTP Status | Condition |
+|-------------|-----------|
+| `400` | Validation failure — e.g. `installments` outside 2–12, non-positive quantity. |
+| `401` | Missing or invalid authentication token. |
+| `403` | Ticket does not allow installments, event registration is closed, ticket is sold out, or the installment belongs to another user. |
+| `404` | Installment ID not found (generate-pix endpoint). |
+
+## Examples
+
+<CodeGroup>
+
+```bash cURL — Create Installment Checkout
+curl --request POST \
+  --url https://api.events-manager.app/api/checkout/installments \
+  --header 'Authorization: Bearer <YOUR_TOKEN>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "ticket_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "quantity": 1,
+    "installments": 4,
+    "participant_name": "João Oliveira",
+    "participant_email": "joao.oliveira@example.com",
+    "participant_phone": "+5521988887777",
+    "participant_document": "987.654.321-00"
+  }'
+```
+
+```json Sample Response — Create Installment Checkout (200 OK)
+{
+  "registration": {
+    "id": "e5f6a7b8-c9d0-1234-efab-345678901234",
+    "status": "pending",
+    "participant_name": "João Oliveira",
+    "participant_email": "joao.oliveira@example.com",
+    "is_installment_payment": true,
+    "total_installments": 4,
+    "installment_plan_status": "active",
+    "installments": [
+      {
+        "id": "f1a2b3c4-d5e6-7890-fghi-111111111111",
+        "installment_number": 1,
+        "total_installments": 4,
+        "amount": 62.50,
+        "due_date": "2024-09-01T00:00:00.000Z",
+        "status": "pending",
+        "pix_qr_code_base64": "iVBORw0KGgoAAAANSUhEUgAA...",
+        "pix_copy_paste": "00020126580014br.gov.bcb.pix0136...",
+        "paid_at": null
+      },
+      {
+        "id": "f1a2b3c4-d5e6-7890-fghi-222222222222",
+        "installment_number": 2,
+        "total_installments": 4,
+        "amount": 62.50,
+        "due_date": "2024-10-01T00:00:00.000Z",
+        "status": "pending",
+        "pix_qr_code_base64": null,
+        "pix_copy_paste": null,
+        "paid_at": null
+      }
+    ]
+  }
+}
+```
+
+```bash cURL — Generate PIX for Installment
+curl --request POST \
+  --url https://api.events-manager.app/api/installments/f1a2b3c4-d5e6-7890-fghi-222222222222/generate-pix \
+  --header 'Authorization: Bearer <YOUR_TOKEN>'
+```
+
+```json Sample Response — Generate PIX (200 OK)
+{
+  "id": "f1a2b3c4-d5e6-7890-fghi-222222222222",
+  "installment_number": 2,
+  "total_installments": 4,
+  "amount": 62.50,
+  "due_date": "2024-10-01T00:00:00.000Z",
+  "status": "pending",
+  "pix_qr_code_base64": "iVBORw0KGgoAAAANSUhEUgAA...",
+  "pix_copy_paste": "00020126580014br.gov.bcb.pix0136...",
+  "paid_at": null
+}
+```
+
+</CodeGroup>

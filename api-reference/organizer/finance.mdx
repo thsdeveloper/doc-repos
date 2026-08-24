@@ -1,0 +1,250 @@
+---
+title: "Organizer Finance API Endpoints"
+sidebarTitle: "Finance"
+description: "Access revenue overview, transaction history, payout records, and analytics for your organizer account via the Events Manager finance API."
+---
+
+The finance endpoints give you programmatic access to every financial aspect of your organizer account: revenue summaries by date range, paginated transaction logs, payout history, per-event financial breakdowns, CSV exports for accounting, and time-series analytics. All endpoints require the authenticated user to hold an active organizer role.
+
+<Note>
+  All finance endpoints require the organizer role. Requests from regular attendee accounts will be rejected with `403 Forbidden`.
+</Note>
+
+---
+
+## GET /api/organizer/finance/overview
+
+Returns a financial summary for your account, optionally scoped to a date range or relative time window.
+
+```
+GET /api/organizer/finance/overview
+```
+
+### Query Parameters
+
+<ParamField query="date_from" type="string">
+  Start of the date range (ISO 8601 date string, e.g. `2024-01-01`). Optional.
+</ParamField>
+
+<ParamField query="date_to" type="string">
+  End of the date range (ISO 8601 date string, e.g. `2024-12-31`). Optional.
+</ParamField>
+
+<ParamField query="range" type="string">
+  Relative time window shorthand (e.g. `7d`, `30d`, `90d`, `1y`). Takes precedence over `date_from`/`date_to` when provided. Optional.
+</ParamField>
+
+### Response
+
+Returns a financial summary object including total revenue, net revenue after fees, number of transactions, and per-event breakdowns within the requested window.
+
+---
+
+## GET /api/organizer/finance/transactions
+
+Returns a paginated list of payment transactions for your organizer account, with filtering and sorting options.
+
+```
+GET /api/organizer/finance/transactions
+```
+
+### Query Parameters
+
+<ParamField query="page" type="integer">
+  Page number for pagination. Positive integer, defaults to `1`.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Number of results per page. Between `1` and `100`, defaults to `20`.
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by transaction status (e.g. `succeeded`, `refunded`, `pending`). Optional.
+</ParamField>
+
+<ParamField query="event_id" type="string">
+  Filter transactions to a specific event by its ID. Optional.
+</ParamField>
+
+<ParamField query="search" type="string">
+  Free-text search across participant name, email, or ticket code. Optional.
+</ParamField>
+
+<ParamField query="date_from" type="string">
+  Start of the date filter (ISO 8601 date string). Optional.
+</ParamField>
+
+<ParamField query="date_to" type="string">
+  End of the date filter (ISO 8601 date string). Optional.
+</ParamField>
+
+<ParamField query="sort_direction" type="string">
+  Sort order for the results. Either `asc` or `desc`. Defaults to `desc` (newest first).
+</ParamField>
+
+### Response
+
+Returns a paginated result with `data` (array of transaction records), `total`, `page`, and `limit` fields.
+
+---
+
+## GET /api/organizer/finance/payouts
+
+Returns the payout history for your organizer account. The response reflects your current `payout_status` from your organizer profile.
+
+```
+GET /api/organizer/finance/payouts
+```
+
+<Note>
+  Payouts are only available when your `payout_status` is `enabled`. If your payout status is `not_configured` or `pending_review`, this endpoint will return an empty list or an appropriate status message. See [Payout Settings](/api-reference/organizer/payout-settings) to configure your PIX key.
+</Note>
+
+### Response
+
+Returns an array of payout records, each including the payout amount, date, PIX key used, and status (completed or failed).
+
+---
+
+## GET /api/organizer/finance/events
+
+Returns a list of your events enriched with financial data such as total revenue, tickets sold, and net organizer amount for each.
+
+```
+GET /api/organizer/finance/events
+```
+
+### Response
+
+Returns an array of event financial summaries including `event_id`, `title`, `slug`, `tickets_sold`, `gross_revenue`, `platform_fees`, and `net_revenue`.
+
+---
+
+## GET /api/organizer/finance/export
+
+Downloads a CSV file containing your full transaction history for accounting and reconciliation purposes.
+
+```
+GET /api/organizer/finance/export
+```
+
+The response has the following headers:
+
+| Header | Value |
+|--------|-------|
+| `Content-Type` | `text/csv; charset=utf-8` |
+| `Content-Disposition` | `attachment; filename="financeiro.csv"` |
+
+<Tip>
+  When calling this endpoint from a browser or HTTP client, make sure your client follows the `Content-Disposition` header so the file is saved correctly. In a browser, navigating directly to this URL (with a valid token as a query param or cookie) will trigger an automatic download.
+</Tip>
+
+---
+
+## GET /api/organizer/analytics
+
+Returns time-series analytics data for your account, optionally filtered to a specific event or date range.
+
+```
+GET /api/organizer/analytics
+```
+
+### Query Parameters
+
+<ParamField query="start_date" type="string">
+  Start of the analytics window (ISO 8601 date string). Optional.
+</ParamField>
+
+<ParamField query="end_date" type="string">
+  End of the analytics window (ISO 8601 date string). Optional.
+</ParamField>
+
+<ParamField query="event_id" type="string (UUID)">
+  Restrict analytics to a single event by its UUID. Optional. Must be a valid UUID if provided.
+</ParamField>
+
+### Response
+
+Returns analytics data including daily/weekly breakdowns of registrations, revenue, and ticket sales within the requested window.
+
+---
+
+## Error Responses
+
+| HTTP Status | Condition |
+|-------------|-----------|
+| `401` | Missing or invalid authentication token. |
+| `403` | User does not have an active organizer profile. |
+| `400` | Invalid query parameter values (e.g. `limit` outside 1–100, invalid UUID for `event_id`). |
+
+---
+
+## Examples
+
+<CodeGroup>
+
+```bash cURL — Finance Overview (Last 30 Days)
+curl --request GET \
+  --url 'https://api.events-manager.app/api/organizer/finance/overview?range=30d' \
+  --header 'Authorization: Bearer <YOUR_TOKEN>'
+```
+
+```json Finance Overview Response (200 OK)
+{
+  "success": true,
+  "overview": {
+    "period": "30d",
+    "grossRevenue": 15320.00,
+    "netRevenue": 14054.40,
+    "platformFees": 766.00,
+    "providerFees": 499.60,
+    "transactionCount": 143,
+    "refundedAmount": 250.00,
+    "pendingAmount": 320.00
+  }
+}
+```
+
+```bash cURL — Transactions (Page 1, Last 7 Days)
+curl --request GET \
+  --url 'https://api.events-manager.app/api/organizer/finance/transactions?page=1&limit=20&date_from=2024-09-01&date_to=2024-09-07&sort_direction=desc' \
+  --header 'Authorization: Bearer <YOUR_TOKEN>'
+```
+
+```json Transactions Response (200 OK)
+{
+  "success": true,
+  "data": [
+    {
+      "id": "txn_abc123",
+      "registration_id": "e5f6a7b8-c9d0-1234-efab-345678901234",
+      "amount": 150.00,
+      "status": "succeeded",
+      "event_title": "Tech Summit 2024",
+      "participant_name": "Maria Silva",
+      "participant_email": "maria.silva@example.com",
+      "ticket_code": "EVT-20240901-A3X9",
+      "payment_method": "pix",
+      "date_created": "2024-09-03T14:22:10.000Z"
+    }
+  ],
+  "total": 48,
+  "page": 1,
+  "limit": 20
+}
+```
+
+```bash cURL — Export CSV
+curl --request GET \
+  --url https://api.events-manager.app/api/organizer/finance/export \
+  --header 'Authorization: Bearer <YOUR_TOKEN>' \
+  --output financeiro.csv
+```
+
+```bash cURL — Analytics (Single Event)
+curl --request GET \
+  --url 'https://api.events-manager.app/api/organizer/analytics?event_id=a1b2c3d4-e5f6-7890-abcd-ef1234567890&start_date=2024-08-01&end_date=2024-09-30' \
+  --header 'Authorization: Bearer <YOUR_TOKEN>'
+```
+
+</CodeGroup>

@@ -1,47 +1,177 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with Events Manager"
+sidebarTitle: "Quickstart"
+description: "Sign up for Events Manager, confirm your email with a 6-digit code, and make your first authenticated API request in under 5 minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
+This guide walks you through the fastest path to a working integration with Events Manager. By the end you'll have a verified account, an active session, and you'll have made your first authenticated API request. All examples use `curl` — swap in your HTTP client of choice.
 
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+<Note>
+  The Events Manager API sets two **httpOnly cookies** on every successful authentication response: `access_token` and `refresh_token`. Browser-based clients receive these automatically and don't need to handle tokens manually. For server-to-server or CLI usage, extract the `access_token` from the response body or cookie and pass it as `Authorization: Bearer <token>` on subsequent requests.
+</Note>
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
 
-    ```bash
-    npm install your-package
-    ```
-  </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+### Register your account
 
-    ```bash
-    your-cli init
-    ```
-  </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+Send a `POST` request to `/api/auth/register` with your name, email address, and a password of at least 8 characters. All four fields are required.
 
-    ```bash
-    your-cli start
-    ```
-  </Step>
-</Steps>
+<CodeGroup>
+
+```bash cURL
+curl -s -X POST https://api.eventsmanager.app/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "first_name": "Maria",
+    "last_name": "Silva",
+    "email": "maria@example.com",
+    "password": "supersecret123"
+  }'
+```
+
+```json Response (email confirmation required)
+{
+  "success": true,
+  "confirmationRequired": true,
+  "email": "maria@example.com",
+  "message": "Enviamos um código de confirmação para o seu e-mail."
+}
+```
+
+</CodeGroup>
+
+When `confirmationRequired` is `true`, a 6-digit confirmation code has been sent to the address you provided. Proceed to the next step to verify it. In some environments the session may be granted immediately (i.e., `confirmationRequired: false`), in which case you can skip ahead to step 3.
+
+<Note>
+  Registration is rate-limited to **20 requests per hour** per IP and **5 requests per 10 minutes** per email address. If you hit these limits during testing, wait a few minutes before retrying.
+</Note>
+
+### Confirm your email
+
+Submit the 6-digit code from your inbox to `/api/auth/register/confirm` along with your email address. The token must be exactly 6 numeric digits.
+
+<CodeGroup>
+
+```bash cURL
+curl -s -c cookies.txt -X POST https://api.eventsmanager.app/api/auth/register/confirm \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "maria@example.com",
+    "token": "482910"
+  }'
+```
+
+```json Response
+{
+  "success": true,
+  "user": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "email": "maria@example.com",
+    "first_name": "Maria",
+    "last_name": "Silva",
+    "role": "attendee",
+    "organizer": null
+  },
+  "isOrganizer": false,
+  "isSuperAdmin": false,
+  "redirect": "/perfil"
+}
+```
+
+</CodeGroup>
+
+A successful confirmation sets the `access_token` and `refresh_token` httpOnly cookies on the response. The `-c cookies.txt` flag in the example above persists those cookies for subsequent `curl` calls. The response also includes the full serialized `user` object and a suggested redirect path based on your role.
 
 <Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
-
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
+  Didn't receive the code? Resend it with `POST /api/auth/register/resend` — supply just your `email` in the request body. You can resend up to 3 times per 10 minutes per address.
 </Tip>
+
+### Get your current user
+
+Once authenticated, verify your session by fetching your own profile from `/api/auth/me`. This endpoint returns your full user object, your organizer profile (if applicable), and role flags.
+
+<CodeGroup>
+
+```bash cURL (cookie-based)
+curl -s -b cookies.txt https://api.eventsmanager.app/api/auth/me
+```
+
+```bash cURL (Bearer token)
+curl -s https://api.eventsmanager.app/api/auth/me \
+  -H "Authorization: Bearer <your_access_token>"
+```
+
+```json Response
+{
+  "user": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "email": "maria@example.com",
+    "first_name": "Maria",
+    "last_name": "Silva",
+    "role": "attendee",
+    "avatar": null,
+    "location": null,
+    "title": null,
+    "description": null,
+    "organizer": null
+  },
+  "isOrganizer": false,
+  "isSuperAdmin": false,
+  "organizerProfile": null,
+  "organizerStatus": null,
+  "hasPendingOrganizerRequest": false
+}
+```
+
+</CodeGroup>
+
+If you see your user object returned, your session is active and working correctly. You're ready to make any authenticated API call.
+
+### Browse public events
+
+The public events endpoint requires no authentication — anyone can call it to list available events on the storefront. This is a good smoke-test to confirm the API is reachable before you set up credentials.
+
+<CodeGroup>
+
+```bash cURL
+curl -s "https://api.eventsmanager.app/api/events/public"
+```
+
+```json Response
+{
+  "data": [
+    {
+      "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "title": "Tech Summit São Paulo 2025",
+      "slug": "tech-summit-sao-paulo-2025",
+      "short_description": "The biggest tech conference in Latin America.",
+      "cover_image": "https://cdn.eventsmanager.app/images/tech-summit-cover.jpg",
+      "event_type": "in_person",
+      "start_date": "2025-09-15T09:00:00.000Z",
+      "end_date": "2025-09-15T18:00:00.000Z",
+      "location_name": "Expo Center Norte",
+      "location_address": "São Paulo, SP",
+      "is_free": false,
+      "featured": true,
+      "status": "published"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "pageSize": 20
+}
+```
+
+</CodeGroup>
+
+Each item in `data` represents a published event. You can use the event `slug` to link directly to its storefront page or to fetch full event details from the API.
+
+</Steps>
+
+## What's next?
+
+You now have an active, confirmed account and a working session. Here are some natural next steps depending on your goal:
+
+- **Buy tickets** — explore the checkout flow and PIX payment integration.
+- **Become an organizer** — request an organizer profile from your account settings to unlock event creation.
+- **Explore the full API** — head to the [API Reference](/api-reference/overview) for every available endpoint, request schema, and response format.

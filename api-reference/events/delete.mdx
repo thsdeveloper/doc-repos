@@ -1,0 +1,58 @@
+---
+title: "DELETE /api/events/:id — Delete an Event"
+sidebarTitle: "Delete Event"
+description: "DELETE /api/events/:id — permanently delete an event you own. Returns HTTP 204 No Content on success. This action cannot be undone."
+---
+
+Deleting an event permanently removes it and all associated data from the platform. This endpoint requires authentication and you must be the organizer who created the event. On success the API returns an empty `204 No Content` response — there is no body to parse. Because deletion is irreversible, you should only use it for test or accidental events; for real events you've already promoted or sold tickets for, consider archiving or cancelling instead.
+
+## Endpoint
+
+```
+DELETE /api/events/:id
+```
+
+**Authentication required.** You must be authenticated as the organizer who owns the event.
+
+## Path Parameters
+
+<ParamField path="id" type="string (UUID)" required>
+  The unique identifier of the event to delete. Retrieve this from the event creation response or your event list.
+</ParamField>
+
+## Response
+
+Returns **HTTP 204 No Content** with an empty body on success.
+
+## Error Responses
+
+| HTTP Status | Error Code | Description |
+|---|---|---|
+| `404 Not Found` | `EVENT_NOT_FOUND` | No event with the given `id` exists under your organizer account. |
+| `403 Forbidden` | `ORGANIZER_REQUIRED` | Your organizer profile is not active. |
+| `401 Unauthorized` | — | No valid bearer token was provided. |
+
+<Warning>
+  **This action is permanent and cannot be undone.** Deleting an event removes it immediately from all public listings. Any attendees who have already purchased tickets will lose access to their registration records. Make sure you have handled refunds and communicated with attendees before deleting.
+</Warning>
+
+<Tip>
+  Instead of deleting, consider updating the event `status` to `cancelled` or `archived` using [PATCH /api/events/:id](/api-reference/events/update). Cancelled events are hidden from public discovery but their data — including ticket sales and participant records — is preserved for your records and for any dispute resolution.
+</Tip>
+
+## Example
+
+<CodeGroup>
+
+```bash cURL
+curl -X DELETE https://api.events-manager.com/api/events/b3d2f1a0-0001-4e3c-a1b2-000000000001 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+</CodeGroup>
+
+A successful deletion returns an HTTP `204` status with no response body:
+
+```
+HTTP/1.1 204 No Content
+```

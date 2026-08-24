@@ -1,0 +1,145 @@
+---
+title: "How the PIX Checkout Flow Works"
+sidebarTitle: "Checkout Flow"
+description: "Understand the end-to-end PIX checkout process on Events Manager, from ticket selection to payment confirmation and ticket issuance."
+---
+
+When an attendee buys a ticket on Events Manager, the platform orchestrates a multi-step flow that spans your frontend, the Events Manager API, and the AbacatePay payment gateway. Understanding this flow helps you troubleshoot payment issues, build custom integrations, and communicate accurately with attendees about what to expect after they click "Pay."
+
+## End-to-End Flow
+
+<Steps>
+  <Step title="Attendee submits checkout">
+    The attendee selects one or more ticket types and quantities, fills in their participant information, and submits the checkout form. Your frontend sends a `POST /api/payments/checkout` request to the Events Manager API with the following body:
+
+    ```json title="POST /api/payments/checkout"
+    {
+      "eventId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "tickets": [
+        { "ticketId": "t1b2c3d4-e5f6-7890-abcd-ef1234567890", "quantity": 2 }
+      ],
+      "participantInfo": {
+        "name": "Maria Silva",
+        "email": "maria@example.com",
+        "phone": "+5511999998888",
+        "document": "123.456.789-00"
+      }
+    }
+    ```
+
+    The API validates the request, checks ticket inventory, and enforces the per-IP rate limit before proceeding.
+
+    <Note>
+      The checkout endpoint is **rate-limited**. Repeated rapid submissions from the same user will receive a `429 Too Many Requests` response. This protects against inventory hoarding and abuse.
+    </Note>
+  </Step>
+
+  <Step title="API creates checkout with AbacatePay">
+    The Events Manager API calculates the total amount (applying platform fees and gateway fees based on the configured `convenience_fee_calculation_method`), reserves the requested inventory, and creates a checkout session with AbacatePay.
+
+    The API response contains a redirect URL pointing to the AbacatePay-hosted payment page:
+
+    ```json title="Checkout response"
+    {
+      "checkoutId": "chk_abc123",
+      "redirectUrl": "https://checkout.abacatepay.com/pay/chk_abc123",
+      "registrationId": "reg_xyz789"
+    }
+    ```
+
+    Your frontend should immediately redirect the attendee to `redirectUrl`.
+  </Step>
+
+  <Step title="Attendee completes PIX payment">
+    On the AbacatePay-hosted page, the attendee sees a PIX QR code and copy-paste key. They open their banking app, scan or paste the code, and confirm the transfer. AbacatePay monitors the PIX network for the incoming payment.
+
+    The checkout page has two terminal states the attendee may reach:
+    - **Success page** — AbacatePay redirects to your `WEB_URL/checkout/success` after payment is confirmed.
+    - **Cancel page** — AbacatePay redirects to your `WEB_URL/checkout/cancel` if the attendee abandons or the session times out.
+  </Step>
+
+  <Step title="AbacatePay sends webhook to Events Manager">
+    Once AbacatePay detects the PIX transfer, it fires a `checkout.completed` webhook event to your registered endpoint:
+
+    ```
+    POST /api/payments/webhooks/abacatepay?webhookSecret=YOUR_SECRET
+    ```
+
+    The Events Manager API verifies the `webhookSecret` query parameter and the `X-Webhook-Signature` HMAC-SHA256 header before processing the event. If either check fails, the request is rejected with `401`. See [Webhooks](/payments/webhooks) for the full security model.
+  </Step>
+
+  <Step title="Platform confirms registration and sends email">
+    After a successful webhook, the platform:
+    1. Updates the registration `payment_status` to `paid`.
+    2. Issues a unique `ticket_code` to the registration.
+    3. Sends a confirmation email to the attendee's address with their ticket details.
+
+    The attendee can view their tickets at any time under **My Tickets** in their account.
+  </Step>
+</Steps>
+
+## Checkout Request Schema
+
+<ParamField body="eventId" type="string (UUID)" required>
+  The UUID of the event the attendee is registering for.
+</ParamField>
+
+<ParamField body="tickets" type="array" required>
+  An array of ticket selections. At least one item is required.
+
+  <Expandable title="tickets[]">
+    <ParamField body="ticketId" type="string (UUID)" required>
+      The UUID of the ticket type.
+    </ParamField>
+    <ParamField body="quantity" type="integer" required>
+      Number of tickets to purchase. Must be a positive integer.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="participantInfo" type="object" required>
+  Information about the primary attendee.
+
+  <Expandable title="participantInfo">
+    <ParamField body="name" type="string" required>
+      Full name of the attendee.
+    </ParamField>
+    <ParamField body="email" type="string" required>
+      Email address for confirmation and ticket delivery.
+    </ParamField>
+    <ParamField body="phone" type="string">
+      Phone number (optional). E.164 format recommended.
+    </ParamField>
+    <ParamField body="document" type="string">
+      CPF or other identifying document number (optional).
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Checking Checkout Status
+
+You can poll the current status of a checkout or registration using a `GET` request. Provide **either** `checkout_id` **or** `registration_id` — not both:
+
+```http title="Check by checkout ID"
+GET /api/payments/checkout/status?checkout_id=chk_abc123
+Authorization: Bearer <token>
+```
+
+```http title="Check by registration ID"
+GET /api/payments/checkout/status?registration_id=reg_xyz789
+Authorization: Bearer <token>
+```
+
+This endpoint requires the attendee to be authenticated. The response reflects the latest known status, which may lag by up to `PAYMENT_RECONCILIATION_MIN_AGE_MINUTES` if a webhook was missed.
+
+## What Happens on the Cancel Page
+
+When an attendee lands on the cancel page (`/checkout/cancel`), their registration remains in `pending` status. The reserved inventory is **not immediately released** — it is freed when the reconciliation job detects that the checkout has been cancelled on the AbacatePay side. This prevents a race condition where a second buyer could over-purchase while the first buyer's timeout is processing.
+
+## What Happens on the Success Page
+
+When an attendee lands on the success page (`/checkout/success`), the webhook has already been processed (or is in flight). The page can use `GET /api/payments/checkout/status?registration_id=...` to poll until `payment_status` becomes `paid`, then display the `ticket_code` to the attendee.
+
+<Tip>
+  If you are building a custom frontend, poll the status endpoint with exponential back-off rather than a fixed interval. Most webhooks arrive within a few seconds of the PIX transfer.
+</Tip>

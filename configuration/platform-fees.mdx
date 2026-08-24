@@ -1,0 +1,148 @@
+---
+title: "Platform Fee and Pricing Configuration"
+sidebarTitle: "Platform Fees"
+description: "Understand how Events Manager calculates platform fees, gateway fees, and organizer net revenue for every paid ticket transaction."
+---
+
+Every ticket sale on Events Manager involves three financial parties: the **attendee** who pays, the **organizer** who receives the proceeds, and the **platform** that facilitates the transaction. The fee model defines exactly how money flows between these parties and which fees each one absorbs. Platform administrators configure these values globally, and they apply to every ticket sale processed through the system.
+
+## Fee Model Overview
+
+The `EventConfigurations` record holds all platform-level fee settings. You can retrieve the current values via:
+
+```http title="Get current platform configuration"
+GET /api/admin/event-configurations
+Authorization: Bearer <admin-token>
+```
+
+The following fees are configurable:
+
+| Field | Type | Description |
+|---|---|---|
+| `platform_fee_percentage` | `number` | The platform's cut as a percentage of the base ticket price. For example, `5` means 5 %. |
+| `pix_fee_fixed` | `number` | Fixed fee (in BRL) charged per PIX transaction by the payment gateway (AbacatePay). |
+| `card_fee_percentage` | `number` | Percentage fee for single-installment card payments. |
+| `card_fee_fixed` | `number` | Fixed fee (in BRL) per card transaction. |
+| `card_installment_2_6_percentage` | `number` | Percentage fee applied to card payments in 2–6 installments. |
+| `card_installment_7_12_percentage` | `number` | Percentage fee applied to card payments in 7–12 installments. |
+| `boleto_fee_fixed` | `number` | Fixed fee (in BRL) per boleto transaction. |
+| `payout_fee_fixed` | `number` | Fixed fee (in BRL) deducted from each payout disbursement to an organizer. |
+| `minimum_payout` | `number` | Minimum balance (in BRL) an organizer must accumulate before a payout can be initiated. |
+
+<Note>
+  Only `platform_fee_percentage` and `pix_fee_fixed` are currently active in live payment processing. Card and boleto fees are reserved for future payment methods.
+</Note>
+
+## Convenience Fee Calculation Methods
+
+The `convenience_fee_calculation_method` setting determines **who pays** the platform and gateway fees:
+
+<CardGroup cols={2}>
+  <Card title="buyer_pays" icon="user">
+    The platform fee and gateway fee are **added on top** of the organizer's ticket price. The attendee sees a higher total at checkout, but the organizer receives the full base price minus only the gateway fee.
+  </Card>
+  <Card title="organizer_absorbs" icon="building">
+    The fees are **deducted from the organizer's net payout**. The attendee pays exactly the ticket face value, and the organizer receives less than the ticket price.
+  </Card>
+</CardGroup>
+
+## Service Fee Type on Tickets
+
+Each ticket type has a `service_fee_type` field that works in conjunction with the global `convenience_fee_calculation_method`:
+
+| Value | Description |
+|---|---|
+| `passed_to_buyer` | The convenience fee for this ticket is added to the buyer's checkout total. |
+| `absorbed` | The organizer absorbs the convenience fee for this ticket, regardless of the global setting. |
+
+This per-ticket setting lets organizers offer some ticket types at a clean face-value price (e.g., VIP tickets) while passing fees on to buyers for general admission tickets.
+
+## Example Fee Calculation
+
+Consider the following scenario:
+
+- **Ticket base price:** R$ 100.00 (the organizer's asking price)
+- **Platform fee:** 5 % (`platform_fee_percentage = 5`)
+- **PIX gateway fee:** R$ 0.99 (`pix_fee_fixed = 0.99`)
+- **Method:** `buyer_pays`
+- **Ticket `service_fee_type`:** `passed_to_buyer`
+
+**Step 1 — Calculate platform fee:**
+```text
+platform_fee = 100.00 × 5% = R$ 5.00
+```
+
+**Step 2 — Calculate buyer price (fees added on top):**
+```text
+buyer_price = base_price + platform_fee + pix_fee_fixed
+buyer_price = 100.00 + 5.00 + 0.99 = R$ 105.99
+```
+
+**Step 3 — Calculate organizer net:**
+```text
+organizer_net = buyer_price - platform_fee - pix_fee_fixed
+organizer_net = 105.99 - 5.00 - 0.99 = R$ 100.00
+```
+
+The attendee pays **R$ 105.99** and the organizer receives **R$ 100.00** after the platform retains R$ 5.00 and passes the R$ 0.99 gateway fee to AbacatePay.
+
+---
+
+Now the same scenario with `organizer_absorbs`:
+
+**Step 1 — Buyer price stays at face value:**
+```text
+buyer_price = R$ 100.00
+```
+
+**Step 2 — Organizer net after deductions:**
+```text
+organizer_net = buyer_price - platform_fee - pix_fee_fixed
+organizer_net = 100.00 - 5.00 - 0.99 = R$ 94.01
+```
+
+The attendee pays **R$ 100.00** and the organizer receives **R$ 94.01**.
+
+## Payout Fees and Minimum Payout
+
+When the platform disburses funds to an organizer via PIX, two additional settings apply:
+
+<ParamField body="payout_fee_fixed" type="number">
+  A fixed fee (in BRL) deducted from each payout transfer. This covers the cost of the outbound PIX transfer initiated by the platform. Example: if `payout_fee_fixed = 2.00` and the organizer's balance is R$ 500.00, the organizer receives R$ 498.00.
+</ParamField>
+
+<ParamField body="minimum_payout" type="number">
+  The minimum balance (in BRL) an organizer must have before a payout request can be initiated. This prevents excessive small transfers and the associated per-transfer fees. Example: if `minimum_payout = 50.00`, organizers with a balance below R$ 50.00 cannot request a payout yet.
+</ParamField>
+
+<Tip>
+  Payout disbursements are initiated by the super admin from the `/super-admin` area. Organizers can view their pending balance and payout history in their **Finances** dashboard.
+</Tip>
+
+## Viewing the Current Configuration
+
+Super admins can view and update platform fee settings through the admin panel. The current configuration is also exposed read-only to authenticated admin users via the API:
+
+```http title="Retrieve platform fee configuration"
+GET /api/admin/event-configurations
+Authorization: Bearer <admin-token>
+```
+
+```json title="Example response"
+{
+  "id": 1,
+  "platform_fee_percentage": 5,
+  "pix_fee_fixed": 0.99,
+  "card_fee_percentage": 2.99,
+  "card_fee_fixed": 0.39,
+  "card_installment_2_6_percentage": 4.99,
+  "card_installment_7_12_percentage": 6.99,
+  "boleto_fee_fixed": 3.49,
+  "payout_fee_fixed": 2.00,
+  "minimum_payout": 50.00,
+  "payouts_enabled": true,
+  "convenience_fee_calculation_method": "buyer_pays",
+  "payment_gateway": "abacatepay",
+  "allow_free_events": true
+}
+```

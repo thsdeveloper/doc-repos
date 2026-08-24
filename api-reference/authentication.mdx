@@ -1,0 +1,119 @@
+---
+title: "Authenticate API Requests to Events Manager"
+sidebarTitle: "Authentication"
+description: "Pass a Bearer token in the Authorization header or rely on session cookies set by the login endpoint to authenticate Events Manager API requests."
+---
+
+Every protected endpoint in the Events Manager API requires a valid identity token. The API issues short-lived **access tokens** and longer-lived **refresh tokens** — both generated when you log in or register. You can deliver the access token either as an `httpOnly` cookie (ideal for browser-based apps) or as an `Authorization` header (ideal for server-to-server clients).
+
+## Method 1 — Cookie-Based Authentication (Browser)
+
+When you call `POST /api/auth/login` or `POST /api/auth/register` from a browser, the API automatically sets two `httpOnly` cookies:
+
+| Cookie | Purpose |
+|---|---|
+| `access_token` | Short-lived JWT used to authenticate requests |
+| `refresh_token` | Long-lived token used to obtain a fresh access token |
+
+Because the cookies are `httpOnly` and scoped to your host, all subsequent same-origin `fetch` or `XMLHttpRequest` calls are authenticated automatically — you do not need to read or forward the token manually.
+
+<CodeGroup>
+```bash title="Login and store cookies"
+curl -c cookies.txt -X POST https://<host>/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "you@example.com", "password": "s3cr3tPass"}'
+```
+
+```bash title="Authenticated request using saved cookies"
+curl -b cookies.txt https://<host>/api/auth/me
+```
+</CodeGroup>
+
+## Method 2 — Bearer Token (Server-to-Server)
+
+For backend clients or scripts, extract `access_token` from the login response body and include it in the `Authorization` header of every subsequent request.
+
+<CodeGroup>
+```bash title="Login and capture token"
+TOKEN=$(curl -s -X POST https://<host>/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "you@example.com", "password": "s3cr3tPass"}' \
+  | jq -r '.user.access_token // empty')
+```
+
+```bash title="Authenticated request using Bearer token"
+curl https://<host>/api/auth/me \
+  -H "Authorization: Bearer $TOKEN"
+```
+</CodeGroup>
+
+<Note>
+  The login response includes the `access_token` inside the `user` object only when email confirmation is not required. For the bearer-token workflow, log in once, capture the token, and store it securely (e.g. an environment variable or secrets manager). Never commit tokens to source control.
+</Note>
+
+## Verifying Your Authentication State
+
+Send a `GET` request to `/api/auth/me` at any time to verify that your token is valid and to retrieve the current user's profile, role, and organizer status.
+
+```bash title="Check current auth state"
+curl https://<host>/api/auth/me \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+A successful response looks like:
+
+```json title="GET /api/auth/me — 200 OK"
+{
+  "user": {
+    "id": "uuid-...",
+    "email": "you@example.com",
+    "first_name": "Ada",
+    "last_name": "Lovelace",
+    "role": "organizer",
+    "organizer": { "status": "active" }
+  },
+  "isOrganizer": true,
+  "isSuperAdmin": false,
+  "organizerProfile": { "status": "active" },
+  "organizerStatus": "active",
+  "hasPendingOrganizerRequest": false
+}
+```
+
+## Refreshing an Expired Access Token
+
+Access tokens expire after a short window. When a request fails with `401 Unauthorized`, refresh your token by calling `POST /api/auth/refresh`. Pass the `refresh_token` either in the request body or let the cookie be sent automatically.
+
+```bash title="Refresh token via request body"
+curl -X POST https://<host>/api/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token": "<your-refresh-token>"}'
+```
+
+The response sets new `access_token` and `refresh_token` cookies and also returns the new `access_token` in the response body.
+
+<Warning>
+  `POST /api/auth/refresh` is rate-limited to **30 requests per minute per IP**. Implement exponential back-off and avoid calling it on every request — only refresh after receiving a `401`.
+</Warning>
+
+## Token Expiry and 401 Responses
+
+When your access token has expired or is missing, the API responds with:
+
+```json title="401 Unauthorized"
+{
+  "type": "https://events-manager.local/problems/unauthorized",
+  "title": "UNAUTHORIZED",
+  "status": 401,
+  "detail": "Token expirado ou ausente.",
+  "instance": "/api/some/protected/endpoint",
+  "requestId": "req-abc123"
+}
+```
+
+Your client should:
+
+1. Detect the `401` status code.
+2. Call `POST /api/auth/refresh` to obtain a new access token.
+3. Retry the original request with the new token.
+4. If the refresh also fails with `401`, prompt the user to log in again.

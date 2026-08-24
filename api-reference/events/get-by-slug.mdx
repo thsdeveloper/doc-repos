@@ -1,0 +1,215 @@
+---
+title: "GET /api/events/slug/:slug — Fetch Event by Slug"
+sidebarTitle: "Get by Slug"
+description: "GET /api/events/slug/:slug — retrieve a single published event by its URL slug. Returns full event details including ticket types."
+---
+
+Use this endpoint to load a complete event detail page for any published event. You supply the URL-friendly `slug` as a path parameter and receive the full event object in return — including all ticket types, organizer details, and category information. No API token or session is required, making it suitable for public-facing event pages and social-preview metadata endpoints.
+
+## Endpoint
+
+```
+GET /api/events/slug/:slug
+```
+
+No authentication is required for this endpoint.
+
+## Path Parameters
+
+<ParamField path="slug" type="string" required>
+  The URL-friendly identifier for the event, e.g. `workshop-ux-design-2025`. Slugs contain only lowercase letters, digits, and hyphens.
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string (UUID)">
+  Unique identifier for the event.
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  Display name of the event.
+</ResponseField>
+
+<ResponseField name="slug" type="string">
+  URL-friendly identifier used in this request.
+</ResponseField>
+
+<ResponseField name="description" type="string | null">
+  Full rich-text description of the event. May contain HTML or Markdown depending on your client configuration.
+</ResponseField>
+
+<ResponseField name="short_description" type="string | null">
+  A concise summary suitable for cards, social previews, and search result snippets.
+</ResponseField>
+
+<ResponseField name="cover_image" type="object | null">
+  Media file object for the event cover image. Contains `id`, `path`, `width`, `height`, and `type`. `null` if no cover has been uploaded.
+</ResponseField>
+
+<ResponseField name="organizer_id" type="object">
+  Expanded organizer object containing `id`, `name`, `email`, `logo`, `website`, and `description`.
+</ResponseField>
+
+<ResponseField name="category_id" type="object | null">
+  Expanded event category with `id`, `name`, `slug`, `icon`, and `color`. `null` if uncategorised.
+</ResponseField>
+
+<ResponseField name="event_type" type="string | null">
+  Format of the event. One of `in_person`, `online`, or `hybrid`. `null` if not specified.
+</ResponseField>
+
+<ResponseField name="start_date" type="string (ISO 8601)">
+  Date and time the event begins, in UTC.
+</ResponseField>
+
+<ResponseField name="end_date" type="string (ISO 8601)">
+  Date and time the event ends, in UTC.
+</ResponseField>
+
+<ResponseField name="location_name" type="string | null">
+  Human-readable venue name, e.g. `"Teatro Municipal"`. `null` for online-only events.
+</ResponseField>
+
+<ResponseField name="location_address" type="string | null">
+  Full street address of the venue. `null` for online events.
+</ResponseField>
+
+<ResponseField name="online_url" type="string | null">
+  Link to the online streaming or meeting room. Only populated for `online` or `hybrid` events.
+</ResponseField>
+
+<ResponseField name="max_attendees" type="integer | null">
+  Maximum total attendee capacity. `null` means unlimited.
+</ResponseField>
+
+<ResponseField name="registration_start" type="string | null">
+  ISO 8601 datetime when ticket sales open. `null` means sales are open immediately.
+</ResponseField>
+
+<ResponseField name="registration_end" type="string | null">
+  ISO 8601 datetime when ticket sales close. `null` means sales close when the event starts.
+</ResponseField>
+
+<ResponseField name="is_free" type="boolean">
+  `true` when all ticket types are free (price = 0).
+</ResponseField>
+
+<ResponseField name="featured" type="boolean">
+  `true` when the organizer has marked this event as featured.
+</ResponseField>
+
+<ResponseField name="tags" type="string[]">
+  Array of keyword tags to aid discovery. May be empty.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Current lifecycle status of the event. Always `published` for events returned by this endpoint.
+</ResponseField>
+
+<ResponseField name="tickets" type="array">
+  List of ticket types available for this event.
+
+  <Expandable title="Ticket type fields">
+    <ResponseField name="id" type="string (UUID)">Unique ticket type identifier.</ResponseField>
+    <ResponseField name="title" type="string">Name shown to buyers, e.g. `"VIP"` or `"Meia-Entrada"`.</ResponseField>
+    <ResponseField name="description" type="string | null">Optional additional details about the ticket.</ResponseField>
+    <ResponseField name="quantity" type="integer">Total number of tickets available.</ResponseField>
+    <ResponseField name="quantity_sold" type="integer | null">Number of tickets already sold (may be `null` until first sale).</ResponseField>
+    <ResponseField name="price" type="number">Organizer net price in BRL.</ResponseField>
+    <ResponseField name="buyer_price" type="number | null">Final price charged to the buyer after service fees. Calculated automatically.</ResponseField>
+    <ResponseField name="service_fee_type" type="string">Either `absorbed` (fee included in price) or `passed_to_buyer` (fee added on top).</ResponseField>
+    <ResponseField name="status" type="string">One of `active`, `sold_out`, or `inactive`.</ResponseField>
+    <ResponseField name="visibility" type="string | null">One of `public`, `invited_only`, or `manual`.</ResponseField>
+    <ResponseField name="sale_start_date" type="string | null">ISO 8601 datetime when this ticket type goes on sale.</ResponseField>
+    <ResponseField name="sale_end_date" type="string | null">ISO 8601 datetime when this ticket type stops selling.</ResponseField>
+    <ResponseField name="min_quantity_per_purchase" type="integer | null">Minimum tickets a buyer must purchase at once.</ResponseField>
+    <ResponseField name="max_quantity_per_purchase" type="integer | null">Maximum tickets a buyer can purchase in a single order.</ResponseField>
+    <ResponseField name="allow_installments" type="boolean | null">`true` if PIX installments are enabled for this ticket.</ResponseField>
+    <ResponseField name="max_installments" type="integer | null">Maximum number of installment payments (2–12).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Error Responses
+
+| HTTP Status | Error Code | Description |
+|---|---|---|
+| `404 Not Found` | `EVENT_NOT_FOUND` | No published event exists with the provided slug. |
+
+## Example
+
+<CodeGroup>
+
+```bash cURL
+curl https://api.events-manager.com/api/events/slug/workshop-ux-design-2025
+```
+
+</CodeGroup>
+
+```json Sample Response
+{
+  "id": "b3d2f1a0-0001-4e3c-a1b2-000000000001",
+  "title": "Workshop de UX Design",
+  "slug": "workshop-ux-design-2025",
+  "description": "<p>Um workshop prático e intensivo de UX Design voltado para designers e desenvolvedores.</p>",
+  "short_description": "Aprenda técnicas modernas de UX em um workshop prático de um dia.",
+  "cover_image": {
+    "id": "f1e2d3c4-0001-4a5b-8c9d-000000000099",
+    "path": "events/workshop-ux-cover.jpg",
+    "width": 1200,
+    "height": 630,
+    "type": "image/jpeg"
+  },
+  "organizer_id": {
+    "id": "a0b1c2d3-0001-4e5f-8a9b-000000000020",
+    "name": "TechLearn Brasil",
+    "email": "contato@techlearn.com.br",
+    "logo": null,
+    "website": "https://techlearn.com.br",
+    "description": "Escola de tecnologia e design."
+  },
+  "category_id": {
+    "id": "c0a1b2c3-0001-4d5e-9f0a-000000000010",
+    "name": "Tecnologia",
+    "slug": "tecnologia",
+    "icon": "💻",
+    "color": "#6366f1"
+  },
+  "event_type": "in_person",
+  "start_date": "2025-09-15T09:00:00.000Z",
+  "end_date": "2025-09-15T18:00:00.000Z",
+  "location_name": "Centro de Inovação SP",
+  "location_address": "Av. Paulista, 1000 — Bela Vista, São Paulo, SP",
+  "online_url": null,
+  "max_attendees": 100,
+  "registration_start": null,
+  "registration_end": "2025-09-14T23:59:00.000Z",
+  "is_free": false,
+  "featured": true,
+  "tags": ["ux", "design", "workshop"],
+  "status": "published",
+  "tickets": [
+    {
+      "id": "t1e2c3k4-0001-4e5t-8a9b-000000000030",
+      "title": "Ingresso Padrão",
+      "description": null,
+      "quantity": 100,
+      "quantity_sold": 38,
+      "price": 150.00,
+      "buyer_price": 157.50,
+      "service_fee_type": "passed_to_buyer",
+      "status": "active",
+      "visibility": "public",
+      "sale_start_date": null,
+      "sale_end_date": "2025-09-14T23:59:00.000Z",
+      "min_quantity_per_purchase": 1,
+      "max_quantity_per_purchase": 5,
+      "allow_installments": true,
+      "max_installments": 3
+    }
+  ]
+}
+```
+
+<Note>
+  The `online_url` field is only visible in the response after a buyer completes a confirmed purchase. For events returned by the public listing, this field is always `null`.
+</Note>

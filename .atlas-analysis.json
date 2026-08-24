@@ -1,13 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "Events Manager",
+  "projectType": "saas",
+  "projectName": "Events Manager",
+  "projectDescription": "A full-stack SaaS platform for creating, publishing, and selling event tickets — with an organizer dashboard, PIX-powered payments, and a public event storefront.",
   "theme": "luma",
-  "colors": {
-    "primary": "#6C47FF",
-    "light": "#EDE9FF",
-    "dark": "#3B1FCC"
-  },
-  "favicon": "/favicon.svg",
+  "primaryColor": "#6C47FF",
+  "lightColor": "#EDE9FF",
+  "darkColor": "#3B1FCC",
   "navigation": {
     "tabs": [
       {
@@ -115,11 +113,63 @@
       }
     ]
   },
-  "navbar": {
-    "primary": {
-      "type": "button",
-      "label": "Get Started",
-      "href": "/quickstart"
-    }
-  }
+  "keyFeatures": [
+    "Multi-step event creation wizard (basic info, schedule, location, cover image, tickets, review)",
+    "Multiple ticket types per event with configurable pricing, visibility, and quantity limits",
+    "PIX-based checkout via AbacatePay with hosted payment page",
+    "PIX installment payments (up to 12 installments) for eligible tickets",
+    "Automatic payment reconciliation for pending checkouts",
+    "Organizer dashboard with KPIs: revenue, tickets sold, upcoming events, participants",
+    "Financial reporting with date filters, per-event breakdowns, and CSV export",
+    "Payout (repasse) management with PIX key validation and platform-controlled disbursements",
+    "Participant management with check-in tracking and full-text search",
+    "Public event storefront with category filtering and pagination",
+    "Webhook support for checkout, PIX transparent payments, payouts, and transfers",
+    "Email notifications for registration confirmation",
+    "Rate-limited authentication with email confirmation flow",
+    "Role-based access: attendee, organizer, admin, super_admin",
+    "Configurable platform fee percentage and convenience fee calculation method"
+  ],
+  "publicApiSurface": [
+    "POST /api/auth/register",
+    "POST /api/auth/register/confirm",
+    "POST /api/auth/register/resend",
+    "POST /api/auth/login",
+    "GET  /api/auth/me",
+    "POST /api/auth/refresh",
+    "POST /api/auth/logout",
+    "POST /api/auth/password/request",
+    "POST /api/auth/password/reset",
+    "PATCH /api/user/profile",
+    "PATCH /api/user/password",
+    "GET  /api/events/public",
+    "GET  /api/events/slug/:slug",
+    "GET  /api/event-categories",
+    "GET  /api/events (authenticated)",
+    "GET  /api/events/:id (authenticated)",
+    "POST /api/events",
+    "PATCH /api/events/:id",
+    "DELETE /api/events/:id",
+    "GET  /api/admin/dashboard",
+    "GET  /api/admin/ingressos",
+    "POST /api/admin/ingressos",
+    "PATCH /api/admin/ingressos/:id",
+    "DELETE /api/admin/ingressos/:id",
+    "GET  /api/organizer/profile",
+    "POST /api/organizer/request",
+    "PATCH /api/organizer/profile",
+    "POST /api/organizer/logo",
+    "GET  /api/organizer/stats",
+    "PATCH /api/organizer/payout-settings",
+    "GET  /api/organizer/finance/overview",
+    "GET  /api/organizer/finance/transactions",
+    "GET  /api/organizer/finance/payouts",
+    "GET  /api/organizer/finance/export",
+    "GET  /api/organizer/analytics",
+    "POST /api/payments/checkout",
+    "GET  /api/payments/checkout/status",
+    "POST /api/checkout/installments",
+    "POST /api/installments/:id/generate-pix",
+    "POST /api/payments/webhooks/abacatepay"
+  ]
 }

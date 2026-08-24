@@ -1,0 +1,103 @@
+---
+title: "Browse and Discover Events"
+sidebarTitle: "Browse Events"
+description: "Explore upcoming events on Events Manager using the public storefront, search by keyword, or filter by category to find events near you."
+---
+
+The Events Manager public storefront lets anyone discover and explore upcoming events — no account or login required. You can visit the events page at `/eventos` at any time to see a live list of all currently published events, browse at your own pace, and click through to any event that catches your eye for full details, ticket prices, and organizer information.
+
+## The public events page
+
+Navigate to `/eventos` in your browser to open the public event listing. The page shows a paginated grid of event cards, up to **12 events per page**. You can move between pages using the **Previous** and **Next** controls at the bottom of the page. The total number of matching events is displayed above the grid so you always know how many results there are.
+
+<Note>
+  No login is required to browse or search events. You only need an account when you are ready to purchase a ticket.
+</Note>
+
+## Searching for events
+
+A search bar sits at the top of the events page. Type any part of an event name and press **Buscar** (or hit Enter) to filter the listing instantly.
+
+- The search term is matched against event titles.
+- The query is passed to `GET /api/events/public` via the `search` query parameter.
+- Searches are limited to 100 characters.
+- Click **Limpar busca** to remove the current search and show all events again.
+
+```http title="Public events API"
+GET /api/events/public?search=workshop&page=1&limit=12
+```
+
+| Parameter | Type    | Default | Description                                  |
+|-----------|---------|---------|----------------------------------------------|
+| `search`  | string  | `""`    | Keyword to filter events by title            |
+| `page`    | integer | `1`     | Page number (must be a positive integer)     |
+| `limit`   | integer | `12`    | Results per page (min `1`, max `48`)         |
+
+## What's on an event card
+
+Every card in the grid shows the key details you need to decide whether an event is right for you.
+
+<CardGroup cols={2}>
+  <Card title="Title & Category" icon="tag">
+    The event title is displayed prominently. The category label (e.g. "Music", "Technology") appears above the title in the category's accent color.
+  </Card>
+  <Card title="Date & Time" icon="calendar">
+    The start date and time are shown in Brazilian locale format (e.g. "14 de jun. de 2025, 19:00").
+  </Card>
+  <Card title="Location" icon="map-pin">
+    For in-person or hybrid events, the venue name is displayed. Online-only events show "Online" instead.
+  </Card>
+  <Card title="Price & Badges" icon="ticket">
+    Free events show a green **Gratuito** badge. Featured events carry a **Destaque** badge. Paid events show their price range on the detail page.
+  </Card>
+</CardGroup>
+
+<Tip>
+  Hovering over a card slightly elevates it with a shadow animation — click anywhere on the card to go to the full event detail page.
+</Tip>
+
+## Event detail page
+
+Clicking a card takes you to `/eventos/{slug}`, where you'll find:
+
+- A full-bleed cover image hero with the event title, dates, and format badge overlaid.
+- A **"Sobre o evento"** section with the complete event description and any tags.
+- An **"Ingressos"** section listing all active ticket types with prices, availability bars, and sale windows.
+- **Location** details (venue name and address) for in-person events.
+- **Online access** note for online and hybrid events — the access link is provided inside your ticket after purchase.
+- **Organizer** profile with contact email, phone, and website.
+- A sidebar pricing card showing the lowest available ticket price and a **Comprar ingressos** button.
+- A **Compartilhar** button to copy the event link.
+
+## Event statuses
+
+Only **published** events appear in the public listing. The other statuses are only visible to organizers in the dashboard.
+
+<CardGroup cols={2}>
+  <Card title="Published" icon="circle-check">
+    The event is live and visible to everyone. Tickets (if configured) are available for purchase during the defined sale window.
+  </Card>
+  <Card title="Draft" icon="pencil">
+    The event is a work-in-progress and is not shown publicly. Only the organizer can see it.
+  </Card>
+  <Card title="Cancelled" icon="circle-x">
+    The event has been called off. It is removed from the public listing and no new ticket purchases are accepted.
+  </Card>
+  <Card title="Archived" icon="archive">
+    The event is hidden from the public listing after it has concluded or been retired by the organizer.
+  </Card>
+</CardGroup>
+
+## Event types
+
+The format badge on every event card and detail page tells you how the event is held.
+
+| Type        | Label        | Description                                              |
+|-------------|--------------|----------------------------------------------------------|
+| `in_person` | Presencial   | Takes place at a physical venue. Address is displayed.   |
+| `online`    | Online       | Fully virtual. Access link is shared after ticket purchase. |
+| `hybrid`    | Híbrido      | Has both a physical location and an online stream.       |
+
+<Accordion title="What if an event shows no tickets?">
+  An event marked as paid may not yet have any active ticket types configured by the organizer, or all ticket windows may be outside their sale period. In that case the page shows **"Ingressos em breve"** with the organizer's contact email so you can reach out directly.
+</Accordion>

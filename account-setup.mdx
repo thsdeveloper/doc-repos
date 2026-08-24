@@ -1,0 +1,131 @@
+---
+title: "Set Up and Manage Your Account"
+sidebarTitle: "Account Setup"
+description: "Update your profile, change your password, and understand the account roles available in Events Manager for attendees and organizers."
+---
+
+Once you've registered and confirmed your email, your Events Manager account is ready to use. This page explains how to keep your profile up to date, change your password, and understand what each account role allows you to do. All profile and password endpoints require an active session — make sure you're authenticated before making these requests.
+
+<Note>
+  Email confirmation is required before you can access authenticated endpoints. If you registered but haven't confirmed your email yet, check your inbox for the 6-digit code and submit it to `POST /api/auth/register/confirm`. See the [Quickstart](/quickstart) for the full confirmation flow.
+</Note>
+
+## Profile fields
+
+Your public and private profile information is managed through `PATCH /api/user/profile`. You can update any combination of the following fields in a single request — only the fields you include will be changed.
+
+| Field | Type | Description |
+|---|---|---|
+| `first_name` | `string` | Your given name (minimum 1 character after trimming). |
+| `last_name` | `string` | Your family name (minimum 1 character after trimming). |
+| `email` | `string` | Your login email address. Must be a valid email format. |
+| `avatar` | `string (UUID)` | The UUID of an uploaded image asset to use as your profile picture. Pass `null` to remove your avatar. |
+| `location` | `string \| null` | A free-text location string (e.g. `"São Paulo, SP"`). |
+| `title` | `string \| null` | A short professional title or tagline (e.g. `"Event Producer"`). |
+| `description` | `string \| null` | A longer bio or description shown on your public organizer profile. |
+
+### Example: update your profile
+
+<CodeGroup>
+
+```bash cURL
+curl -s -X PATCH https://api.eventsmanager.app/api/user/profile \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your_access_token>" \
+  -d '{
+    "first_name": "Maria",
+    "last_name": "Oliveira",
+    "location": "São Paulo, SP",
+    "title": "Event Producer",
+    "description": "Creating unforgettable experiences in Latin America since 2018."
+  }'
+```
+
+```json Response
+{
+  "success": true,
+  "user": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "email": "maria@example.com",
+    "first_name": "Maria",
+    "last_name": "Oliveira",
+    "role": "attendee",
+    "avatar": null,
+    "location": "São Paulo, SP",
+    "title": "Event Producer",
+    "description": "Creating unforgettable experiences in Latin America since 2018.",
+    "organizer": null
+  }
+}
+```
+
+</CodeGroup>
+
+<Tip>
+  Fields set to `null` are cleared from your profile. If you omit a field entirely, its existing value is preserved. This means you can safely patch a single field without accidentally wiping others.
+</Tip>
+
+## Changing your password
+
+To change your password, send a `PATCH` request to `/api/user/password` with a `password` field containing your new password. The new password must be **at least 8 characters** long.
+
+<CodeGroup>
+
+```bash cURL
+curl -s -X PATCH https://api.eventsmanager.app/api/user/password \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your_access_token>" \
+  -d '{
+    "password": "my-new-secure-password"
+  }'
+```
+
+```json Response
+{
+  "success": true
+}
+```
+
+</CodeGroup>
+
+<Warning>
+  This endpoint changes your password immediately and does not ask for your current password. Ensure you are making this request from a secure, authenticated context. If you have lost access to your account, use `POST /api/auth/forgot-password` to trigger a password reset email instead.
+</Warning>
+
+## Account roles
+
+Every Events Manager account is assigned a role that controls what you can see and do on the platform. Roles are assigned and managed at the platform level — you cannot change your own role directly.
+
+<CardGroup cols={2}>
+  <Card title="Attendee" icon="user">
+    **Default role for all new accounts.** As an attendee, you can browse the public event storefront, purchase tickets using PIX, view your registration history, and manage your personal profile. You cannot create or publish events.
+  </Card>
+  <Card title="Organizer" icon="calendar-plus">
+    **Requires an approved request.** Organizers can create and publish events, define ticket tiers, set pricing and sale windows, and access the organizer analytics dashboard with revenue and attendance metrics. After registering, you can apply for organizer status from your account settings.
+  </Card>
+  <Card title="Admin" icon="shield-check">
+    **Platform-level role, not self-assigned.** Admins have full organizer capabilities plus access to moderation tools. This role is granted by a super admin to trusted platform collaborators and is not available through self-service.
+  </Card>
+  <Card title="Super Admin" icon="shield-halved">
+    **Highest privilege level.** Super admins can manage all users, roles, organizer requests, and platform-wide settings. After authentication, super admins are redirected to a dedicated `/super-admin` dashboard. This role is reserved for platform operators.
+  </Card>
+</CardGroup>
+
+### Checking your current role
+
+Your role is always included in the response from `GET /api/auth/me` under `user.role`. The response also includes the convenience flags `isOrganizer` and `isSuperAdmin` so you don't need to compare role strings yourself:
+
+```json Response from GET /api/auth/me
+{
+  "user": {
+    "role": "organizer",
+    ...
+  },
+  "isOrganizer": true,
+  "isSuperAdmin": false,
+  "organizerStatus": "active",
+  "hasPendingOrganizerRequest": false
+}
+```
+
+If you've submitted an organizer request but it hasn't been approved yet, `hasPendingOrganizerRequest` will be `true` and `organizerStatus` will be `"pending"`. Once approved, both `isOrganizer` and `organizerStatus: "active"` will reflect the change on your next request to `/api/auth/me`.

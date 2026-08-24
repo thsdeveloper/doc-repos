@@ -1,0 +1,154 @@
+---
+title: "Pay for Tickets in PIX Installments"
+sidebarTitle: "PIX Installments"
+description: "Split your ticket purchase into up to 12 monthly PIX installments on eligible Events Manager events, with no credit card required."
+---
+
+PIX Installments (parcelamento via Pix) let you split the cost of a ticket into multiple monthly charges, each collected as a separate PIX transaction. There is no credit card involved — every installment is a standalone PIX payment with its own QR code and copy-paste code, generated fresh each month. This option is available on select tickets where the organizer has chosen to enable it, giving you flexibility to attend events without paying the full amount upfront.
+
+## Eligibility
+
+Not every ticket supports installment payments. Before selecting this option, confirm that the following conditions are met:
+
+<CardGroup cols={2}>
+  <Card title="Installments enabled" icon="toggle-on">
+    The ticket type must have `allow_installments = true`. You'll see a **"Parcele em até Nx"** indicator on the event detail page when this is active.
+  </Card>
+  <Card title="Installment range" icon="list-ordered">
+    You can choose between **2 and 12** monthly installments. The exact maximum is set per ticket (`max_installments`) and cannot be exceeded.
+  </Card>
+  <Card title="Minimum amount" icon="brazilian-real">
+    Some tickets have a `min_amount_for_installments` threshold. If your ticket price falls below that threshold, the installment option will not be shown.
+  </Card>
+  <Card title="Single ticket per plan" icon="ticket">
+    Each installment checkout covers one ticket type and quantity. Mixed-ticket installment checkouts are not supported — use the standard PIX checkout for orders with multiple ticket types.
+  </Card>
+</CardGroup>
+
+<Note>
+  You must be logged in to create an installment checkout. The system links the installment plan to your user account so you can track and pay each charge from [My Tickets](/attendees/my-tickets).
+</Note>
+
+## Selecting an installment plan at checkout
+
+<Steps>
+  <Step title="Open the checkout page">
+    Navigate to the event and click **Comprar ingressos** or **Selecionar** on an eligible ticket. On the checkout page, look for the **Parcelar via Pix** option.
+  </Step>
+  <Step title="Choose the number of installments">
+    Select how many monthly payments you want (2–12, up to the ticket's maximum). The estimated value per installment is shown in real time.
+  </Step>
+  <Step title="Enter attendee information">
+    Fill in your name, email, and optionally phone and document. These details will be tied to your registration.
+  </Step>
+  <Step title="Confirm and pay the first installment">
+    After confirming, a PIX QR code for the **first installment** is generated immediately. Scan it or copy the PIX code into your banking app to make the first payment. Subsequent installments are generated on their respective due dates.
+  </Step>
+</Steps>
+
+The installment checkout is submitted to `POST /api/checkout/installments` with the following schema:
+
+```json title="Installment checkout request body"
+{
+  "ticket_id": "uuid-of-the-ticket-type",
+  "quantity": 1,
+  "installments": 4,
+  "participant_name": "João Souza",
+  "participant_email": "joao@example.com",
+  "participant_phone": "+5521988880000",
+  "participant_document": "987.654.321-00"
+}
+```
+
+| Field                  | Type    | Required | Description                                              |
+|------------------------|---------|----------|----------------------------------------------------------|
+| `ticket_id`            | UUID    | ✅       | The ticket type you are purchasing                       |
+| `quantity`             | integer | ✅       | Positive integer                                         |
+| `installments`         | integer | ✅       | Number of installments (min `2`, max `12`)               |
+| `participant_name`     | string  | ✅       | Full name of the attendee                                |
+| `participant_email`    | string  | ✅       | Valid email address                                      |
+| `participant_phone`    | string  | No       | Optional phone number                                    |
+| `participant_document` | string  | No       | Optional CPF or document number                          |
+
+## Installment plan statuses
+
+Your registration's `installment_plan_status` field tracks the overall health of the payment plan.
+
+| Status      | Meaning                                                                                         |
+|-------------|-------------------------------------------------------------------------------------------------|
+| `active`    | The plan is running normally. At least one installment is pending or being collected.           |
+| `completed` | All installments have been paid in full. Your registration is fully settled.                    |
+| `defaulted` | One or more installments became overdue and were not recovered. The plan is in default.         |
+
+## Individual installment statuses
+
+Each monthly charge is stored as a separate `PaymentInstallment` record with its own status:
+
+<CardGroup cols={2}>
+  <Card title="pending" icon="clock">
+    The installment is due but the PIX code has not been generated or payment has not been received yet.
+  </Card>
+  <Card title="paid" icon="circle-check">
+    The PIX for this installment was confirmed. The `paid_at` timestamp records when payment was received.
+  </Card>
+  <Card title="overdue" icon="triangle-alert">
+    The due date has passed without payment. You must generate a new PIX code to settle this installment.
+  </Card>
+  <Card title="cancelled" icon="circle-x">
+    This installment was cancelled, typically because the overall plan was terminated.
+  </Card>
+</CardGroup>
+
+## Paying an overdue installment
+
+If you miss a payment, the installment moves to `overdue` status. You can generate a fresh PIX code at any time using the following endpoint:
+
+```http title="Generate a new PIX for an overdue installment"
+POST /api/installments/{installment_id}/generate-pix
+```
+
+Replace `{installment_id}` with the UUID of the specific installment record. The endpoint requires authentication.
+
+```json title="Example response"
+{
+  "id": "installment-uuid",
+  "installment_number": 2,
+  "total_installments": 4,
+  "amount": 75.00,
+  "due_date": "2025-07-15T03:00:00.000Z",
+  "status": "overdue",
+  "pix_qr_code_base64": "iVBORw0KGgoAAAANS...",
+  "pix_copy_paste": "00020126580014BR.GOV.BCB.PIX..."
+}
+```
+
+| Response field        | Description                                                       |
+|-----------------------|-------------------------------------------------------------------|
+| `pix_qr_code_base64`  | Base64-encoded PNG of the PIX QR code. Render with an `<img>` tag.|
+| `pix_copy_paste`      | The full PIX Copia e Cola string to paste into your banking app.  |
+| `due_date`            | Original due date of the installment.                             |
+| `amount`              | Amount due for this installment in BRL.                           |
+
+<Tip>
+  Save the `pix_copy_paste` string to your clipboard before closing the page. Most banking apps accept this string in the **"Pix copia e cola"** field for instant payment without scanning a QR code.
+</Tip>
+
+## What happens if installments are overdue
+
+When an installment becomes overdue, the platform sets a `blocked_reason` field on your registration (value: `overdue_installments`). This may restrict your access to certain features, such as check-in, until the outstanding balance is settled.
+
+<Warning>
+  If your registration shows `blocked_reason: overdue_installments`, you must pay all overdue installments before the event organizer can check you in. Use `POST /api/installments/{id}/generate-pix` for each overdue installment to obtain fresh PIX codes.
+</Warning>
+
+<Accordion title="Will I receive a reminder before each installment is due?">
+  Email reminders are sent to the address you provided at checkout before each installment's due date. Check your spam folder if you don't see the reminder. You can also monitor all installment due dates from the [My Tickets](/attendees/my-tickets) page.
+</Accordion>
+
+<Accordion title="Can I pay off the remaining installments early?">
+  Early settlement of the full remaining balance is not currently available through the self-service portal. Contact the event organizer to request early payment options.
+</Accordion>
+
+<Accordion title="What happens to my registration if the installment plan defaults?">
+  When a plan enters `defaulted` status, the registration's `blocked_reason` is set to `overdue_installments` and your ticket code may be restricted. Reach out to the event organizer to discuss a resolution, as manual corrections to the plan status must be made by the organizer or platform admin.
+</Accordion>

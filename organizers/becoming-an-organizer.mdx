@@ -1,0 +1,121 @@
+---
+title: "Become an Event Organizer on Events Manager"
+sidebarTitle: "Become Organizer"
+description: "Apply for organizer status on Events Manager to create events, sell tickets, and access the full organizer dashboard and financial tools."
+---
+
+Organizer status unlocks the full power of Events Manager. As an organizer you gain access to the `/admin` dashboard, the event creation wizard, ticket management, participant tracking, and the financial suite — everything you need to run paid or free events and receive payouts directly to your PIX key.
+
+## What organizer status gives you
+
+<CardGroup cols={2}>
+  <Card title="Event Creation" icon="calendar-plus">
+    Create unlimited events with custom schedules, locations, cover images, and multiple ticket types.
+  </Card>
+  <Card title="Ticket Sales" icon="ticket">
+    Sell tickets with flexible pricing, service fee options, sale windows, and PIX installment support.
+  </Card>
+  <Card title="Participant Management" icon="users">
+    Search, filter, and check in attendees from the `/admin/participantes` panel with real-time data.
+  </Card>
+  <Card title="Financial Dashboard" icon="chart-line">
+    Monitor gross revenue, transaction history, and payout balances from `/admin/financeiro`.
+  </Card>
+</CardGroup>
+
+## Organizer statuses
+
+Before you can publish events your organizer profile must be reviewed by the platform team. There are three possible statuses:
+
+| Status | Meaning |
+|--------|---------|
+| `pending` | Your application has been submitted and is awaiting review. |
+| `active` | You are approved. You can create events, sell tickets, and receive payouts. |
+| `archived` | The organizer profile has been deactivated. Contact support to reactivate. |
+
+<Note>
+  In sandbox / mock-payment environments the platform may automatically set new organizers to `active` so you can test end-to-end flows without waiting for manual review.
+</Note>
+
+## How to request organizer status
+
+Submit a `POST` request to `/api/organizer/request` with your organization details. All authenticated users can call this endpoint — you do **not** need to be an organizer yet.
+
+<ParamField body="name" type="string" required>
+  Display name of your organization or brand. Minimum 2 characters.
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  Public contact email for your organization. Must be a valid email address.
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  A short description of your organization and the events you plan to run. Minimum 10 characters.
+</ParamField>
+
+<ParamField body="phone" type="string">
+  Contact phone number. Optional.
+</ParamField>
+
+<ParamField body="website" type="string">
+  Your organization's website URL. Must be a valid `http://` or `https://` address.
+</ParamField>
+
+<ParamField body="document" type="string">
+  CPF (individuals) or CNPJ (companies) of the responsible party. Used for financial verification.
+</ParamField>
+
+<ParamField body="logo" type="string (UUID)">
+  UUID of a previously uploaded media file. See [Uploading your logo](#uploading-your-logo) below.
+</ParamField>
+
+```json title="POST /api/organizer/request"
+{
+  "name": "Produções Horizonte",
+  "email": "contato@horizonte.com.br",
+  "description": "Produtora de eventos culturais e corporativos no Rio de Janeiro.",
+  "phone": "+55 21 99999-0000",
+  "website": "https://horizonte.com.br",
+  "document": "12.345.678/0001-99"
+}
+```
+
+A successful response returns HTTP `201` with the created organizer object and a `success: true` flag. Your status will be `pending` (or `active` in mock mode) immediately.
+
+## What happens after approval
+
+Once the platform team sets your status to `active`:
+
+1. Your `/admin` dashboard becomes fully accessible.
+2. You can create and publish events immediately.
+3. Ticket sales open as soon as you set a ticket's status to `active`.
+4. Payouts become available after you configure a PIX key — see [Payout Settings](/organizers/payout-settings).
+
+## Profile endpoint vs. request endpoint
+
+<Note>
+  There are two endpoints that create an organizer profile:
+
+  - **`POST /api/organizer/request`** — the public application flow. Requires both `name` (min 2 chars) and `description` (min 10 chars).
+  - **`POST /api/organizer/profile`** — an alternative creation path. Requires `name` but `description` is optional.
+
+  Use `/request` for the standard onboarding flow. Use `PATCH /api/organizer/profile` at any time to update existing profile fields.
+</Note>
+
+## Uploading your logo
+
+You can attach a logo to your organizer profile by first uploading the image file, then passing the returned UUID as the `logo` field when creating or updating your profile.
+
+To upload a logo, send a `multipart/form-data` POST request to `/api/organizer/logo`. The file field must contain a valid image. The endpoint requires you to already be an active organizer.
+
+```bash title="Upload logo via multipart form"
+curl -X POST https://your-domain.com/api/organizer/logo \
+  -H "Authorization: Bearer <your-token>" \
+  -F "file=@/path/to/logo.png"
+```
+
+The response includes both the uploaded `file` object (with its `id`) and the updated `organizer` profile. You can use `file.id` as the `logo` value in future `PATCH /api/organizer/profile` calls.
+
+<Tip>
+  Use a square image (1:1 ratio) at least 400 × 400 px for the best display across the storefront and dashboard.
+</Tip>

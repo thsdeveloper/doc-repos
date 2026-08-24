@@ -1,0 +1,126 @@
+---
+title: "Create and Publish Events"
+sidebarTitle: "Create Events"
+description: "Use the Events Manager creation wizard to set up events with custom dates, locations, cover images, and ticket types — then publish to your storefront."
+---
+
+Events Manager walks you through a multi-step creation wizard that breaks event setup into logical sections: Basic Info, Schedule, Location, Cover Image, Tickets, and Review. You can save your progress as a `draft` at any step and return later — the event only becomes visible to attendees once you explicitly set its status to `published`.
+
+## Event statuses
+
+| Status | Description |
+|--------|-------------|
+| `draft` | Work in progress. Not visible to the public. |
+| `published` | Live on your storefront. Attendees can discover and register. |
+| `cancelled` | Event has been called off. Existing registrations are preserved for refund processing. |
+| `archived` | Removed from all public listings. Historical data is retained. |
+
+## Creation wizard — step by step
+
+<Steps>
+
+  ### Basic Info
+
+  Start with the fundamental details that identify your event publicly.
+
+  - **`title`** — The event name shown in listings and on the event page. Minimum 3 characters.
+  - **`slug`** — The URL-friendly identifier (e.g., `jazz-night-2025`). Auto-generated from the title in lowercase with hyphens. Must match the regex `^[a-z0-9]+(?:-[a-z0-9]+)*$`. You can customize it, but it must be unique within your account.
+  - **`category_id`** — UUID of an event category (fetched from `GET /api/admin/event-configurations`).
+  - **`description`** — Full rich-text description displayed on the event detail page.
+  - **`short_description`** — A brief summary used in listing cards and meta tags.
+  - **`tags`** — An array of keyword strings to improve discoverability (e.g., `["música", "jazz", "presencial"]`).
+  - **`featured`** — Set to `true` to highlight this event in featured sections of the storefront.
+
+  ### Schedule
+
+  Define when the event takes place and when registrations open and close.
+
+  - **`start_date`** — ISO 8601 datetime when the event begins (e.g., `2025-09-20T19:00:00-03:00`). Required.
+  - **`end_date`** — ISO 8601 datetime when the event ends. Must be after `start_date`. Required.
+  - **`registration_start`** — When attendees can begin registering. Defaults to immediately if omitted.
+  - **`registration_end`** — Deadline for registrations. Must be after `registration_start`.
+  - **`max_attendees`** — Cap on total participants. Leave empty for unlimited capacity.
+
+  <Tip>
+    All date fields are automatically normalized to ISO 8601 UTC by the API. Always include a timezone offset in your input so the conversion is accurate.
+  </Tip>
+
+  ### Location
+
+  Tell attendees where — or how — to attend.
+
+  - **`event_type`** — One of `in_person`, `online`, or `hybrid`. See [Event type options](#event-type-options) below.
+  - **`location_name`** — Venue name (e.g., `Teatro Municipal do Rio de Janeiro`).
+  - **`location_address`** — Full street address, shown on the event page and used for maps.
+  - **`online_url`** — Link to the live stream or virtual venue. Required when `event_type` is `online` or `hybrid`. Must be a valid `http://` or `https://` URL.
+
+  ### Cover Image
+
+  A cover image makes your event stand out in listings and social shares.
+
+  Upload your image first via your platform's media endpoint to receive a file UUID, then pass that UUID as `cover_image` in your event payload. Recommended aspect ratio is **16:9** at a minimum resolution of 1280 × 720 px.
+
+  ### Tickets
+
+  Add one or more ticket types to enable paid or free registrations. You can create tickets during event creation or add them later via the ticket management panel. See [Create and Manage Ticket Types](/organizers/managing-tickets) for the full reference.
+
+  ### Review & Publish
+
+  Preview all event details before going live. To publish, set `status` to `published` in your final API call (or toggle the switch in the dashboard UI).
+
+  <Warning>
+    Once an event is `published` and tickets have been sold, changing `start_date`, `end_date`, or `location_address` will **not** automatically notify registered attendees. Use your communication tools to inform them of any changes.
+  </Warning>
+
+</Steps>
+
+## Event type options
+
+| Value | Description |
+|-------|-------------|
+| `in_person` | Attendees must be physically present at `location_name` / `location_address`. |
+| `online` | Event is fully virtual. Provide an `online_url` for attendees. |
+| `hybrid` | Combines in-person and online attendance. Both location and online URL fields are shown. |
+
+## Create an event via API
+
+```json title="POST /api/events"
+{
+  "title": "Jazz Night 2025",
+  "slug": "jazz-night-2025",
+  "description": "Uma noite especial de jazz ao vivo no coração do Rio.",
+  "short_description": "Jazz ao vivo com os melhores músicos da cidade.",
+  "category_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "event_type": "in_person",
+  "start_date": "2025-09-20T19:00:00-03:00",
+  "end_date": "2025-09-20T23:00:00-03:00",
+  "registration_start": "2025-08-01T00:00:00-03:00",
+  "registration_end": "2025-09-20T18:00:00-03:00",
+  "location_name": "Teatro Rival Petrobras",
+  "location_address": "Rua Álvaro Alvim, 33 – Centro, Rio de Janeiro – RJ",
+  "max_attendees": 300,
+  "tags": ["jazz", "música", "rio"],
+  "featured": false,
+  "status": "draft"
+}
+```
+
+A successful response returns HTTP `201` with the full event object including its generated `id`.
+
+## Updating an event
+
+Use `PATCH /api/events/:id` to update any subset of event fields after creation. All fields are optional in a patch request — only the fields you include are changed.
+
+```json title="PATCH /api/events/:id — publish the event"
+{
+  "status": "published"
+}
+```
+
+## Deleting an event
+
+Send `DELETE /api/events/:id` to permanently delete a draft event.
+
+<Warning>
+  **Deleting an event is irreversible.** All associated ticket types, registration records, and financial data are also removed. If the event has confirmed ticket sales, cancel it instead of deleting it so that refund workflows can complete properly.
+</Warning>

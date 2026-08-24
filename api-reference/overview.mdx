@@ -1,0 +1,107 @@
+---
+title: "Events Manager REST API Reference"
+sidebarTitle: "Overview"
+description: "The Events Manager REST API lets you manage events, sell tickets, process PIX payments, and access organizer data programmatically."
+---
+
+The Events Manager REST API gives you full programmatic access to every capability available through the web application — creating and publishing events, issuing and validating tickets, processing PIX payments, and reading organizer analytics. All endpoints use JSON over HTTPS, follow consistent error conventions, and require either a session cookie or a Bearer token to authenticate.
+
+## Base URL
+
+The API is served on the **same host as the web application** under the `/api/*` path prefix. There is no separate subdomain.
+
+```
+https://<your-events-manager-host>/api
+```
+
+During local development, the default host is `http://localhost:3000`.
+
+## Request Format
+
+All request bodies must be encoded as JSON. Set the `Content-Type` header on every write request.
+
+```http
+Content-Type: application/json
+```
+
+Query parameters are plain URL-encoded strings. Pagination and filter parameters are documented per endpoint.
+
+## Authentication
+
+Every protected endpoint requires proof of identity. The API supports two methods — choose whichever fits your use case:
+
+| Method | How it works |
+|---|---|
+| **Session cookie** (browser) | `POST /api/auth/login` sets `access_token` and `refresh_token` as `httpOnly` cookies. Subsequent same-origin requests are authenticated automatically. |
+| **Bearer token** (server-to-server) | Extract `access_token` from the login response body and send it as `Authorization: Bearer <token>` on each request. |
+
+See the [Authentication guide](/api-reference/authentication) for detailed examples and token refresh instructions.
+
+## Response Format
+
+**Successful** responses return a JSON object whose shape is documented per endpoint. Most write operations include a `"success": true` field alongside the created or updated resource.
+
+**Error** responses conform to [RFC 7807 Problem Details](https://www.rfc-editor.org/rfc/rfc7807). The `Content-Type` is `application/problem+json` and the body always contains:
+
+```json
+{
+  "type": "https://events-manager.local/problems/<code>",
+  "title": "ERROR_CODE",
+  "status": 422,
+  "detail": "Human-readable explanation.",
+  "instance": "/api/auth/register",
+  "requestId": "req-abc123"
+}
+```
+
+Refer to the [Errors reference](/api-reference/errors) for the full list of status codes and error codes.
+
+## Rate Limiting
+
+Sensitive endpoints are rate-limited by IP address and, where applicable, by account (email). When a limit is exceeded the API returns `429 Too Many Requests` with a `Retry-After: 60` header and error code `RATE_LIMITED`.
+
+| Endpoint group | Limit |
+|---|---|
+| `POST /api/auth/register` | 20 req / hr per IP · 5 req / 10 min per email |
+| `POST /api/auth/login` | 50 req / 5 min per IP · 10 req / 5 min per email |
+| `POST /api/auth/register/confirm` | 30 req / 10 min per IP · 10 req / 10 min per email |
+| `POST /api/auth/refresh` | 30 req / min per IP |
+| `POST /api/auth/password/request` | 10 req / 10 min per IP · 3 req / 10 min per email |
+| `POST /api/auth/password/reset` | 5 req / 10 min per IP |
+
+Checkout and payment webhook endpoints carry their own limits documented in their respective sections.
+
+## Versioning
+
+The API is currently **unversioned** — the path prefix is `/api/` with no version segment. Breaking changes will be announced in the changelog with a migration window. We recommend pinning to a specific client library release rather than consuming the HTTP surface directly in production integrations.
+
+## Endpoint Groups
+
+| Group | Description |
+|---|---|
+| [Authentication](/api-reference/authentication) | Register, log in, log out, refresh tokens, reset password |
+| Events | Create, publish, and manage events |
+| Tickets | Define ticket types, pricing, and availability |
+| Payments | Initiate PIX checkout, handle webhooks, check payment status |
+| Organizer | Organizer profile, dashboard metrics, and team management |
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api-reference/authentication">
+    Register, log in, manage tokens, and reset passwords.
+  </Card>
+  <Card title="Events" icon="calendar" href="/api-reference/events">
+    Create, update, publish, and archive events.
+  </Card>
+  <Card title="Tickets" icon="ticket" href="/api-reference/tickets">
+    Define ticket types, set pricing, and manage availability.
+  </Card>
+  <Card title="Payments" icon="brazilian-real-sign" href="/api-reference/payments">
+    PIX checkout, webhook verification, and payment status.
+  </Card>
+  <Card title="Organizer" icon="chart-line" href="/api-reference/organizer">
+    Dashboard metrics, organizer profile, and event analytics.
+  </Card>
+  <Card title="Errors" icon="circle-exclamation" href="/api-reference/errors">
+    HTTP status codes, error codes, and handling strategies.
+  </Card>
+</CardGroup>

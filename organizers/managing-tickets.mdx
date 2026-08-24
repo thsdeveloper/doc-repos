@@ -1,0 +1,158 @@
+---
+title: "Create and Manage Ticket Types"
+sidebarTitle: "Tickets"
+description: "Configure ticket types for your event with custom pricing, quantities, sale windows, visibility rules, and PIX installment options."
+---
+
+Every event can have one or more ticket types, each representing a distinct admission option — for example, a standard ticket, a VIP upgrade, or a half-price student rate. Ticket types are modeled as `EventTicket` records linked to your event and control everything from price and quantity to sale windows and PIX installment eligibility.
+
+## Key fields
+
+<ParamField body="event_id" type="string (UUID)" required>
+  The UUID of the event this ticket type belongs to.
+</ParamField>
+
+<ParamField body="title" type="string" required>
+  The ticket name shown to buyers (e.g., `Ingresso Único`, `VIP`, `Meia-Entrada`). Minimum 1 character.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Optional details about this ticket type — what's included, access level, etc.
+</ParamField>
+
+<ParamField body="quantity" type="integer" required>
+  Total number of tickets available for sale. Must be a positive integer.
+</ParamField>
+
+<ParamField body="price" type="number" required>
+  The **organizer net price** — the amount you receive per ticket sold, before platform and provider fees. Set to `0` for free tickets.
+</ParamField>
+
+<ParamField body="service_fee_type" type="string" required>
+  Controls who bears the platform service fee. Accepts `absorbed` or `passed_to_buyer`. See [Fee type explained](#fee-type-explained) below.
+</ParamField>
+
+<ParamField body="status" type="string">
+  Ticket availability status. One of `active`, `sold_out`, or `inactive`. Defaults to `active`.
+</ParamField>
+
+## Pricing and fees
+
+The `price` field always represents **what you as the organizer will receive** per ticket. The `buyer_price` field is calculated automatically by the platform and reflects the total amount the buyer pays at checkout.
+
+<Tip>
+  **`absorbed` vs `passed_to_buyer`:**
+  - **`absorbed`** — You pay the service fee from your revenue. The buyer pays exactly `price`. Choose this when you want advertised prices to be "all-in".
+  - **`passed_to_buyer`** — The platform fee is added on top and charged to the buyer. The buyer pays `price + service_fee`. Choose this to protect your organizer net revenue.
+</Tip>
+
+## Sale window
+
+Control exactly when tickets go on sale and when sales close:
+
+<ParamField body="sale_start_date" type="string (ISO 8601)">
+  Date and time when this ticket type opens for purchase. Leave empty to make it available immediately after the event is published.
+</ParamField>
+
+<ParamField body="sale_end_date" type="string (ISO 8601)">
+  Date and time when sales close. Must be after `sale_start_date`. Leave empty to keep selling until the event starts or tickets sell out.
+</ParamField>
+
+## Quantity limits per purchase
+
+<ParamField body="min_quantity_per_purchase" type="integer">
+  Minimum number of tickets a buyer must add to a single order. Useful for group bookings.
+</ParamField>
+
+<ParamField body="max_quantity_per_purchase" type="integer">
+  Maximum number of tickets a buyer can add in one order. Must be ≥ `min_quantity_per_purchase`.
+</ParamField>
+
+## Visibility
+
+<ParamField body="visibility" type="string">
+  Controls who can see and purchase this ticket type. Defaults to `public`.
+</ParamField>
+
+| Value | Description |
+|-------|-------------|
+| `public` | Visible to all visitors on the event page. |
+| `invited_only` | Only visible to attendees with a direct invite link. |
+| `manual` | Hidden from the storefront; can only be assigned manually from the dashboard. |
+
+## Ticket statuses
+
+| Status | Description |
+|--------|-------------|
+| `active` | Available for purchase (subject to sale window and quantity). |
+| `sold_out` | All units have been sold. Buyers see a "sold out" indicator. |
+| `inactive` | Manually disabled. Not available for purchase regardless of quantity remaining. |
+
+## PIX installments
+
+Events Manager supports splitting PIX payments into multiple installments. Configure this per ticket type:
+
+<ParamField body="allow_installments" type="boolean">
+  Set to `true` to enable installment payments for this ticket type.
+</ParamField>
+
+<ParamField body="max_installments" type="integer">
+  Number of installments allowed. Must be between `2` and `12`. Required when `allow_installments` is `true`.
+</ParamField>
+
+<ParamField body="min_amount_for_installments" type="number">
+  Minimum ticket price required to offer installments. Buyers purchasing tickets below this amount pay in full.
+</ParamField>
+
+<Note>
+  If you set `allow_installments: true` but omit `max_installments`, the API will return a validation error. Always provide both fields together.
+</Note>
+
+## API reference
+
+### Create a ticket type
+
+```json title="POST /api/admin/ingressos"
+{
+  "event_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "title": "Ingresso VIP",
+  "description": "Acesso ao camarote, open bar e meet & greet com os artistas.",
+  "quantity": 50,
+  "price": 250.00,
+  "service_fee_type": "passed_to_buyer",
+  "visibility": "public",
+  "sale_start_date": "2025-08-01T00:00:00-03:00",
+  "sale_end_date": "2025-09-19T23:59:59-03:00",
+  "min_quantity_per_purchase": 1,
+  "max_quantity_per_purchase": 4,
+  "allow_installments": true,
+  "max_installments": 6,
+  "min_amount_for_installments": 100.00,
+  "status": "active"
+}
+```
+
+Returns HTTP `201` with the created ticket type object including its `id` and calculated `buyer_price`.
+
+### Update a ticket type
+
+```json title="PATCH /api/admin/ingressos/:id"
+{
+  "quantity": 75,
+  "status": "active"
+}
+```
+
+### Duplicate a ticket type
+
+To quickly create a similar ticket type, send `POST /api/admin/ingressos/:id/duplicate`. The platform creates an exact copy with a new `id` and `inactive` status so you can adjust the clone before activating it.
+
+### Delete a ticket type
+
+```http title="DELETE /api/admin/ingressos/:id"
+DELETE /api/admin/ingressos/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+<Warning>
+  Deleting a ticket type that has active registrations will leave those registrations without a valid ticket reference. Only delete ticket types that have **zero confirmed sales**. To stop selling a ticket type, set its `status` to `inactive` instead.
+</Warning>

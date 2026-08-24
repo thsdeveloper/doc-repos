@@ -1,0 +1,45 @@
+---
+title: "POST /api/auth/logout — End Your Session"
+sidebarTitle: "Logout"
+description: "POST /api/auth/logout — invalidate your current session and clear both authentication cookies. Returns HTTP 204 No Content on success."
+---
+
+Calling this endpoint invalidates the current session on the server side and instructs the browser to clear the `access_token` and `refresh_token` cookies. After logging out, any subsequent request that depends on those cookies will receive a `401 Unauthorized` response until the user authenticates again.
+
+## POST /api/auth/logout
+
+### Request
+
+No request body is required. The endpoint reads the `access_token` from the cookie or `Authorization` header to identify the session to invalidate.
+
+### Response — 204 No Content
+
+The server returns an empty `204 No Content` response on success. There is no JSON body. Both `access_token` and `refresh_token` cookies are cleared by the `Set-Cookie` headers in the response.
+
+<Note>
+  If the session has already expired or the token cannot be found, the endpoint still returns `204` and clears the cookies — logout is always a safe, idempotent operation.
+</Note>
+
+## Bearer Token Clients
+
+If you are using Bearer token authentication rather than cookies, the server-side session is still invalidated on logout. You should also discard the access token on your end — remove it from memory, clear it from your secrets store, and do not include it in future requests.
+
+<Warning>
+  Because JWTs are stateless, a discarded access token will technically remain valid until its natural expiry. Always call `POST /api/auth/logout` before discarding a token to ensure the server-side session record is revoked immediately.
+</Warning>
+
+## Example
+
+<CodeGroup>
+```bash title="Logout (cookie-based session)"
+curl -b cookies.txt -c cookies.txt \
+  -X POST https://<host>/api/auth/logout
+# Returns 204 No Content — cookies are cleared
+```
+
+```bash title="Logout (Bearer token)"
+curl -X POST https://<host>/api/auth/logout \
+  -H "Authorization: Bearer $TOKEN"
+# Returns 204 No Content — discard $TOKEN locally
+```
+</CodeGroup>

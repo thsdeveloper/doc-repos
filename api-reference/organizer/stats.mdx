@@ -1,0 +1,205 @@
+---
+title: "GET /api/organizer/stats — Organizer Dashboard Stats"
+sidebarTitle: "Stats"
+description: "GET /api/organizer/stats — retrieve aggregated statistics for your organizer account including events, participants, tickets sold, and gross revenue."
+---
+
+Use the stats and dashboard endpoints to power your organizer dashboard with real-time aggregated metrics. The organizer stats endpoint returns a compact summary of your account's performance, while the admin dashboard endpoint provides the same metrics alongside a list of your most recent events for quick access. Both endpoints require an active organizer role.
+
+<Note>
+  Both endpoints require the authenticated user to have an organizer role. Requests from regular attendee accounts will be rejected with `403 Forbidden`.
+</Note>
+
+---
+
+## GET /api/organizer/stats
+
+Returns aggregated metrics for your organizer account.
+
+```
+GET /api/organizer/stats
+```
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  `true` when the request was processed successfully.
+</ResponseField>
+
+<ResponseField name="stats" type="object">
+  Aggregated statistics for your organizer account.
+
+  <ResponseField name="stats.totalEvents" type="integer">
+    Total number of events created under your organizer account, across all statuses.
+  </ResponseField>
+
+  <ResponseField name="stats.publishedEvents" type="integer">
+    Number of events currently in `published` status.
+  </ResponseField>
+
+  <ResponseField name="stats.upcomingEvents" type="integer">
+    Number of published events whose `start_date` is in the future.
+  </ResponseField>
+
+  <ResponseField name="stats.participants" type="integer">
+    Total number of confirmed registrations across all your events.
+  </ResponseField>
+
+  <ResponseField name="stats.ticketsSold" type="integer">
+    Total number of individual tickets sold (sum of `quantity` on confirmed registrations).
+  </ResponseField>
+
+  <ResponseField name="stats.grossRevenue" type="number">
+    Total gross revenue in BRL from all confirmed paid registrations.
+  </ResponseField>
+</ResponseField>
+
+---
+
+## GET /api/admin/dashboard
+
+Returns the same metrics as `GET /api/organizer/stats` plus a `recentEvents` array for use in dashboard activity feeds.
+
+```
+GET /api/admin/dashboard
+```
+
+### Response
+
+<ResponseField name="metrics" type="object">
+  Same aggregated metrics object as returned by `GET /api/organizer/stats`.
+
+  <ResponseField name="metrics.totalEvents" type="integer">
+    Total events created.
+  </ResponseField>
+
+  <ResponseField name="metrics.publishedEvents" type="integer">
+    Currently published events.
+  </ResponseField>
+
+  <ResponseField name="metrics.upcomingEvents" type="integer">
+    Published events with a future start date.
+  </ResponseField>
+
+  <ResponseField name="metrics.participants" type="integer">
+    Total confirmed participants.
+  </ResponseField>
+
+  <ResponseField name="metrics.ticketsSold" type="integer">
+    Total tickets sold.
+  </ResponseField>
+
+  <ResponseField name="metrics.grossRevenue" type="number">
+    Gross revenue in BRL.
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="recentEvents" type="array">
+  A list of your most recently created or updated events.
+
+  <ResponseField name="recentEvents[].id" type="string (UUID)">
+    Event UUID.
+  </ResponseField>
+
+  <ResponseField name="recentEvents[].title" type="string">
+    Event title.
+  </ResponseField>
+
+  <ResponseField name="recentEvents[].slug" type="string">
+    URL-friendly slug for the event.
+  </ResponseField>
+
+  <ResponseField name="recentEvents[].status" type="string (enum)">
+    Event status: `published`, `draft`, `cancelled`, or `archived`.
+  </ResponseField>
+
+  <ResponseField name="recentEvents[].startDate" type="string (ISO 8601 with offset)">
+    Event start date and time with timezone offset.
+  </ResponseField>
+
+  <ResponseField name="recentEvents[].location" type="string">
+    Human-readable location string for the event.
+  </ResponseField>
+
+  <ResponseField name="recentEvents[].participantCount" type="integer">
+    Number of confirmed participants for this event.
+  </ResponseField>
+
+  <ResponseField name="recentEvents[].ticketsSold" type="integer">
+    Number of tickets sold for this event.
+  </ResponseField>
+</ResponseField>
+
+## Error Responses
+
+| HTTP Status | Condition |
+|-------------|-----------|
+| `401` | Missing or invalid authentication token. |
+| `403` | Authenticated user does not have an active organizer profile. |
+
+## Examples
+
+<CodeGroup>
+
+```bash cURL — Organizer Stats
+curl --request GET \
+  --url https://api.events-manager.app/api/organizer/stats \
+  --header 'Authorization: Bearer <YOUR_TOKEN>'
+```
+
+```json Organizer Stats Response (200 OK)
+{
+  "success": true,
+  "stats": {
+    "totalEvents": 12,
+    "publishedEvents": 8,
+    "upcomingEvents": 5,
+    "participants": 1240,
+    "ticketsSold": 1563,
+    "grossRevenue": 78150.00
+  }
+}
+```
+
+```bash cURL — Admin Dashboard
+curl --request GET \
+  --url https://api.events-manager.app/api/admin/dashboard \
+  --header 'Authorization: Bearer <YOUR_TOKEN>'
+```
+
+```json Admin Dashboard Response (200 OK)
+{
+  "metrics": {
+    "totalEvents": 12,
+    "publishedEvents": 8,
+    "upcomingEvents": 5,
+    "participants": 1240,
+    "ticketsSold": 1563,
+    "grossRevenue": 78150.00
+  },
+  "recentEvents": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "title": "Tech Summit 2024",
+      "slug": "tech-summit-2024",
+      "status": "published",
+      "startDate": "2024-11-15T09:00:00-03:00",
+      "location": "São Paulo, SP",
+      "participantCount": 312,
+      "ticketsSold": 389
+    },
+    {
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "title": "UX Design Workshop",
+      "slug": "ux-design-workshop",
+      "status": "published",
+      "startDate": "2024-12-02T14:00:00-03:00",
+      "location": "Online",
+      "participantCount": 75,
+      "ticketsSold": 75
+    }
+  ]
+}
+```
+
+</CodeGroup>

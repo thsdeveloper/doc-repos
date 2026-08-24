@@ -1,0 +1,146 @@
+---
+title: "PATCH /api/organizer/payout-settings — Configure Payouts"
+sidebarTitle: "Payout Settings"
+description: "PATCH /api/organizer/payout-settings — register or update your PIX key for receiving payouts from ticket sales on Events Manager."
+---
+
+Before you can receive proceeds from ticket sales, you must register a PIX key with Events Manager. This endpoint lets you submit or update the PIX key that the platform uses to transfer your net revenue after each event. After you call this endpoint your `payout_status` transitions to `pending_review` — the platform team validates the key before enabling payouts. Only calls made by an authenticated user with an active organizer profile are accepted.
+
+<Note>
+  This endpoint requires the organizer role. Requests from regular attendee accounts will be rejected with `403 Forbidden`.
+</Note>
+
+<Warning>
+  Payouts are **not processed** until your `payout_status` is `enabled`. Submitting new payout details will reset your status to `pending_review` and temporarily pause any scheduled payout runs while the platform re-validates your key.
+</Warning>
+
+## Endpoint
+
+```
+PATCH /api/organizer/payout-settings
+```
+
+## Request Body
+
+<ParamField body="payout_pix_key" type="string" required>
+  Your PIX key. The format depends on the `payout_pix_key_type` you choose:
+  - **CPF** — `123.456.789-00` or `12345678900`
+  - **CNPJ** — `12.345.678/0001-90` or `12345678000190`
+  - **PHONE** — `+5511999998888`
+  - **EMAIL** — `contato@example.com`
+  - **RANDOM** — a 32-character alphanumeric random key issued by your bank
+
+  Minimum 3 characters after trimming whitespace.
+</ParamField>
+
+<ParamField body="payout_pix_key_type" type="string (enum)" required>
+  The type of PIX key being registered. Must be one of:
+
+  | Value | Description |
+  |-------|-------------|
+  | `CPF` | Individual taxpayer ID (11 digits). |
+  | `CNPJ` | Business taxpayer ID (14 digits). |
+  | `PHONE` | Brazilian mobile number in E.164 format. |
+  | `EMAIL` | Email address registered with your bank as a PIX key. |
+  | `RANDOM` | Randomly generated PIX key issued by your bank (chave aleatória). |
+</ParamField>
+
+## Response
+
+<ResponseField name="success" type="boolean">
+  `true` when the payout settings were saved successfully.
+</ResponseField>
+
+<ResponseField name="organizer" type="object">
+  The updated organizer profile. The `payout_status` will be `pending_review` after this call.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  A confirmation message: `"Dados de repasse enviados para validação pela plataforma."` (Payout data sent for platform review.)
+</ResponseField>
+
+## Payout Status Lifecycle
+
+The `payout_status` field on your organizer profile follows this state machine:
+
+```
+not_configured
+      │
+      ▼  (PATCH /api/organizer/payout-settings)
+pending_review
+      │
+      ├─▶ enabled    (platform approves the PIX key)
+      │
+      └─▶ blocked    (key failed validation or account suspended)
+```
+
+| Status | Meaning |
+|--------|---------|
+| `not_configured` | No PIX key registered yet. Payouts cannot be scheduled. |
+| `pending_review` | Key submitted and awaiting platform validation. Payouts are paused. |
+| `enabled` | Key validated. Payouts will be processed according to the platform schedule. |
+| `blocked` | Key rejected or account suspended. Contact support to resolve. |
+
+<Tip>
+  After calling this endpoint, poll `GET /api/organizer/profile` to monitor when `payout_status` transitions from `pending_review` to `enabled`. Most reviews complete within one business day.
+</Tip>
+
+## Error Responses
+
+| HTTP Status | Condition |
+|-------------|-----------|
+| `400` | Validation failure — `payout_pix_key` is too short, `payout_pix_key_type` is not a valid enum value, or required fields are missing. |
+| `401` | Missing or invalid authentication token. |
+| `403` | Authenticated user does not have an active organizer profile. |
+
+## Example
+
+<CodeGroup>
+
+```bash cURL — Register PIX Key (Email)
+curl --request PATCH \
+  --url https://api.events-manager.app/api/organizer/payout-settings \
+  --header 'Authorization: Bearer <YOUR_TOKEN>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "payout_pix_key": "financeiro@techevents.com.br",
+    "payout_pix_key_type": "EMAIL"
+  }'
+```
+
+```bash cURL — Register PIX Key (CNPJ)
+curl --request PATCH \
+  --url https://api.events-manager.app/api/organizer/payout-settings \
+  --header 'Authorization: Bearer <YOUR_TOKEN>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "payout_pix_key": "12345678000190",
+    "payout_pix_key_type": "CNPJ"
+  }'
+```
+
+```json Sample Response (200 OK)
+{
+  "success": true,
+  "organizer": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "status": "active",
+    "name": "TechEvents Brasil",
+    "email": "contato@techevents.com.br",
+    "payout_pix_key": "financeiro@techevents.com.br",
+    "payout_pix_key_type": "EMAIL",
+    "payout_status": "pending_review"
+  },
+  "message": "Dados de repasse enviados para validação pela plataforma."
+}
+```
+
+```json Error — Invalid Key Type (400)
+{
+  "error": "VALIDATION_ERROR",
+  "message": "payout_pix_key_type must be one of: CPF, CNPJ, PHONE, EMAIL, RANDOM",
+  "statusCode": 400
+}
+```
+
+</CodeGroup>

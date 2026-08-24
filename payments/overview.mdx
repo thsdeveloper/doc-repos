@@ -1,0 +1,102 @@
+---
+title: "Payments Overview: PIX Checkout on Events Manager"
+sidebarTitle: "Overview"
+description: "Events Manager processes ticket payments via PIX using AbacatePay. Learn about payment flow, supported methods, and fee structure."
+---
+
+Events Manager handles all ticket payments through **AbacatePay**, a Brazilian payment gateway that provides hosted PIX checkouts and transparent PIX installments. The platform acts as an intermediary — your browser talks to the Events Manager API, which in turn communicates with AbacatePay on your behalf. Neither organizers nor attendees ever interact with the gateway directly, keeping the experience consistent and secure.
+
+## Architecture
+
+The payment flow follows a strict server-side pattern to protect sensitive credentials and ensure every transaction is recorded:
+
+```text
+Browser / Mobile App
+        │
+        ▼
+Events Manager API  (Fastify)
+        │
+        ▼
+AbacatePay Gateway  (hosted checkout or transparent PIX)
+        │
+        ▼
+Supabase / Postgres  (ledger, registrations, installments)
+```
+
+The API layer handles fee calculation, inventory reservation, and webhook validation. The gateway layer is interchangeable — swapping from `mock` to `abacatepay` mode requires only an environment variable change, with no code modifications needed.
+
+## Supported Payment Methods
+
+<CardGroup cols={2}>
+  <Card title="PIX – Hosted Checkout" icon="qrcode">
+    Attendees are redirected to an AbacatePay-hosted payment page where they complete a single PIX payment. The most common flow for standard ticket purchases.
+  </Card>
+  <Card title="PIX – Transparent Installments" icon="calendar-days">
+    Attendees pay in **2 to 12 monthly PIX installments** without leaving your platform. Each installment generates a fresh QR code and copy-paste code on demand.
+  </Card>
+</CardGroup>
+
+## Fee Structure
+
+Every paid ticket involves three fee components that are calculated at the time of purchase and recorded on the transaction ledger:
+
+| Component | Description |
+|---|---|
+| `platform_fee_percentage` | The platform's percentage cut of the base ticket price (e.g., 5 %). |
+| `pix_fee_fixed` | A fixed per-transaction gateway fee charged by AbacatePay for each PIX payment. |
+| `organizer_net` | What the organizer actually receives: ticket price minus platform fee minus gateway fee. |
+
+Whether the fee is **added on top** of the ticket price (paid by the buyer) or **deducted from the organizer payout** depends on the `convenience_fee_calculation_method` setting in your platform configuration. See [Platform Fees](/configuration/platform-fees) for full details.
+
+## Payment Modes
+
+<CardGroup cols={2}>
+  <Card title="mock (default)" icon="flask">
+    Used for local development. Checkouts and webhooks are confirmed instantly without any external calls. No AbacatePay credentials required. Set `PAYMENTS_MODE=mock` in your environment.
+  </Card>
+  <Card title="abacatepay (production)" icon="bolt">
+    Connects to the live AbacatePay API. Requires a valid `ABACATEPAY_API_KEY` and a publicly accessible HTTPS webhook endpoint. Set `PAYMENTS_MODE=abacatepay`.
+  </Card>
+</CardGroup>
+
+<Note>
+  The reconciliation background job only runs when `PAYMENTS_MODE=abacatepay`. In mock mode, all checkouts are resolved synchronously.
+</Note>
+
+## Checkout Payment Statuses
+
+AbacatePay reports the following statuses for a hosted checkout session:
+
+| Status | Meaning |
+|---|---|
+| `pending` | Checkout was created; the attendee has not yet completed payment. |
+| `confirmed` | PIX was received and the payment is settled. |
+| `attention` | Payment requires manual review (e.g., dispute opened). |
+| `cancelled` | Checkout expired or was explicitly cancelled. |
+
+## Registration Payment Statuses
+
+Once a checkout is confirmed, the platform creates or updates an `EventRegistration` record with one of these `payment_status` values:
+
+| Status | Meaning |
+|---|---|
+| `free` | The ticket was free; no payment was collected. |
+| `pending` | A checkout was initiated but payment has not been confirmed yet. |
+| `paid` | Payment confirmed; the attendee holds a valid ticket. |
+| `refunded` | A refund was issued and the registration has been reversed. |
+
+## Hosted Checkout vs. Transparent Installments
+
+The two payment flows serve different use cases:
+
+**Hosted Checkout** redirects the attendee to an AbacatePay-branded page. AbacatePay handles PIX generation, expiration, and payment confirmation entirely. Your platform receives a webhook when the payment is done. This is the default flow for all standard ticket purchases.
+
+**Transparent Installments** keep the attendee on your platform throughout the entire experience. The API returns a PIX QR code and copy-paste code for each installment directly in the API response. No redirect occurs. This flow requires the ticket to have `allow_installments=true` and `max_installments` set.
+
+## Automatic Reconciliation
+
+For stuck `pending` checkouts — cases where the webhook was delayed or never delivered — the platform runs a background reconciliation job. This job queries AbacatePay for the current status of any checkout that has been pending longer than `PAYMENT_RECONCILIATION_MIN_AGE_MINUTES` minutes and updates the registration accordingly.
+
+<Tip>
+  You can tune the frequency and batch size of the reconciliation job using the `PAYMENT_RECONCILIATION_INTERVAL_SECONDS` and `PAYMENT_RECONCILIATION_BATCH_SIZE` environment variables. See [Environment Variables](/configuration/environment-variables) for details.
+</Tip>

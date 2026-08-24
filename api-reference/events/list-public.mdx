@@ -1,0 +1,187 @@
+---
+title: "GET /api/events/public — List Public Events"
+sidebarTitle: "List Events"
+description: "GET /api/events/public — retrieve a paginated list of published events. Filter by keyword search or browse all. No authentication required."
+---
+
+The public events endpoint lets anyone browse published events without needing an account or API token. Results are paginated and can be narrowed down with a keyword search that matches against titles, descriptions, and tags. Use this endpoint to power event discovery pages, search widgets, or any public-facing listing. You can also fetch the full list of event categories from `GET /api/event-categories` to build filter UIs.
+
+## Endpoint
+
+```
+GET /api/events/public
+```
+
+No authentication is required for this endpoint.
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="12">
+  Number of events to return per page. Must be between **1** and **48**.
+</ParamField>
+
+<ParamField query="page" type="integer" default="1">
+  Page number to retrieve. Must be a positive integer. Combine with `limit` to paginate through all results.
+</ParamField>
+
+<ParamField query="search" type="string" default="">
+  Free-text keyword to filter events by. Matches against event titles, descriptions, and tags. Maximum **100** characters. Leave empty to return all published events.
+</ParamField>
+
+## Response
+
+The response object contains pagination metadata alongside an array of event objects.
+
+<ResponseField name="data" type="array">
+  Array of published event objects matching the query.
+
+  <Expandable title="Event object fields">
+    <ResponseField name="id" type="string (UUID)">
+      Unique identifier for the event.
+    </ResponseField>
+    <ResponseField name="title" type="string">
+      Display name of the event.
+    </ResponseField>
+    <ResponseField name="slug" type="string">
+      URL-friendly identifier used to fetch the event by slug.
+    </ResponseField>
+    <ResponseField name="description" type="string | null">
+      Full rich-text description of the event.
+    </ResponseField>
+    <ResponseField name="short_description" type="string | null">
+      Short summary suitable for cards and previews.
+    </ResponseField>
+    <ResponseField name="start_date" type="string (ISO 8601)">
+      Date and time the event begins.
+    </ResponseField>
+    <ResponseField name="end_date" type="string (ISO 8601)">
+      Date and time the event ends.
+    </ResponseField>
+    <ResponseField name="location_name" type="string | null">
+      Venue name, e.g. `"Teatro Municipal"`. `null` for fully online events.
+    </ResponseField>
+    <ResponseField name="event_type" type="string | null">
+      One of `in_person`, `online`, or `hybrid`.
+    </ResponseField>
+    <ResponseField name="is_free" type="boolean">
+      `true` if the event has no paid ticket types.
+    </ResponseField>
+    <ResponseField name="cover_image" type="object | null">
+      Media file object for the event cover image, or `null` if not set.
+    </ResponseField>
+    <ResponseField name="category" type="object | null">
+      Expanded event category object with `id`, `name`, `slug`, `icon`, and `color`.
+    </ResponseField>
+    <ResponseField name="organizer" type="object">
+      Organizer profile with `id`, `name`, `logo`, and `description`.
+    </ResponseField>
+    <ResponseField name="tickets" type="array">
+      List of active ticket types for the event, each including `id`, `title`, `price`, `buyer_price`, `quantity`, `status`, and `sale_start_date` / `sale_end_date`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="total" type="integer">
+  Total number of events matching the query (across all pages).
+</ResponseField>
+
+<ResponseField name="page" type="integer">
+  Current page number.
+</ResponseField>
+
+<ResponseField name="limit" type="integer">
+  Number of results per page used for this response.
+</ResponseField>
+
+## Event Categories
+
+You can fetch the list of all event categories (for building filter UIs or navigation menus) with a separate unauthenticated request:
+
+```
+GET /api/event-categories
+```
+
+Returns `{ data: EventCategory[] }` where each category contains `id`, `name`, `slug`, `description`, `icon`, and `color`.
+
+## Get a Single Event by Slug
+
+Once you have a slug from the listing response, you can retrieve the full event detail — including all ticket types — without authentication:
+
+```
+GET /api/events/slug/:slug
+```
+
+See [Get Event by Slug](/api-reference/events/get-by-slug) for full documentation of that endpoint.
+
+## Examples
+
+<CodeGroup>
+
+```bash cURL — list first page
+curl -G https://api.events-manager.com/api/events/public \
+  --data-urlencode "limit=12" \
+  --data-urlencode "page=1"
+```
+
+```bash cURL — search with keyword
+curl -G https://api.events-manager.com/api/events/public \
+  --data-urlencode "search=workshop" \
+  --data-urlencode "limit=6" \
+  --data-urlencode "page=1"
+```
+
+```bash cURL — fetch categories
+curl https://api.events-manager.com/api/event-categories
+```
+
+</CodeGroup>
+
+```json Sample Response
+{
+  "data": [
+    {
+      "id": "b3d2f1a0-0001-4e3c-a1b2-000000000001",
+      "title": "Workshop de UX Design",
+      "slug": "workshop-ux-design-2025",
+      "short_description": "Aprenda técnicas modernas de UX em um workshop prático de um dia.",
+      "start_date": "2025-09-15T09:00:00.000Z",
+      "end_date": "2025-09-15T18:00:00.000Z",
+      "location_name": "Centro de Inovação SP",
+      "event_type": "in_person",
+      "is_free": false,
+      "cover_image": {
+        "id": "f1e2d3c4-0001-4a5b-8c9d-000000000099",
+        "path": "events/workshop-ux-cover.jpg"
+      },
+      "category": {
+        "id": "c0a1b2c3-0001-4d5e-9f0a-000000000010",
+        "name": "Tecnologia",
+        "slug": "tecnologia",
+        "icon": "💻",
+        "color": "#6366f1"
+      },
+      "organizer": {
+        "id": "a0b1c2d3-0001-4e5f-8a9b-000000000020",
+        "name": "TechLearn Brasil",
+        "logo": null,
+        "description": "Escola de tecnologia e design."
+      },
+      "tickets": [
+        {
+          "id": "t1e2c3k4-0001-4e5t-8a9b-000000000030",
+          "title": "Ingresso Padrão",
+          "price": 150.00,
+          "buyer_price": 157.50,
+          "quantity": 100,
+          "status": "active",
+          "sale_start_date": null,
+          "sale_end_date": "2025-09-14T23:59:00.000Z"
+        }
+      ]
+    }
+  ],
+  "total": 42,
+  "page": 1,
+  "limit": 12
+}
+```

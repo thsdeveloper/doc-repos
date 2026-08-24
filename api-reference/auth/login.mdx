@@ -1,0 +1,151 @@
+---
+title: "POST /api/auth/login — Sign In to Your Account"
+sidebarTitle: "Login"
+description: "POST /api/auth/login — authenticate with email and password. Sets session cookies and returns user profile with role and organizer status."
+---
+
+The login endpoint authenticates a user with their email and password, sets `httpOnly` session cookies for browser clients, and returns a session payload containing the user profile, role flags, and a suggested redirect path. It is the starting point for both cookie-based and Bearer-token authentication flows.
+
+## POST /api/auth/login
+
+### Request Body
+
+<ParamField body="email" type="string" required>
+  The registered email address.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  The account password. Minimum 8 characters.
+</ParamField>
+
+### Response — 200 OK
+
+<ResponseField name="success" type="boolean">
+  Always `true` on a successful login.
+</ResponseField>
+
+<ResponseField name="user" type="object">
+  The authenticated user's profile object.
+
+  <Expandable title="user fields">
+    <ResponseField name="id" type="string (UUID)">
+      Unique user identifier.
+    </ResponseField>
+    <ResponseField name="email" type="string">
+      The user's email address.
+    </ResponseField>
+    <ResponseField name="first_name" type="string">
+      First name.
+    </ResponseField>
+    <ResponseField name="last_name" type="string">
+      Last name.
+    </ResponseField>
+    <ResponseField name="role" type="string">
+      Account role. One of `user`, `organizer`, `admin`, or `super_admin`.
+    </ResponseField>
+    <ResponseField name="organizer" type="object | null">
+      Organizer profile if one exists, including `status` (`active`, `pending`, or `inactive`).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="isOrganizer" type="boolean">
+  `true` when the user's role is `organizer` or `admin`, or when their organizer profile status is `active`.
+</ResponseField>
+
+<ResponseField name="isSuperAdmin" type="boolean">
+  `true` when the user's role is `super_admin`.
+</ResponseField>
+
+<ResponseField name="redirect" type="string">
+  Suggested client-side redirect path based on role:
+
+  | Role | Redirect |
+  |---|---|
+  | `super_admin` | `/super-admin` |
+  | `organizer` / `admin` / active organizer | `/admin` |
+  | All others | `/perfil` |
+</ResponseField>
+
+### Cookies Set
+
+| Cookie | Type | Description |
+|---|---|---|
+| `access_token` | `httpOnly` | Short-lived JWT for authenticating requests |
+| `refresh_token` | `httpOnly` | Long-lived token used to obtain new access tokens |
+
+<Note>
+  Cookies are `httpOnly` and therefore inaccessible to JavaScript running in the browser. They are sent automatically by the browser on all same-origin requests, so you do not need to read or forward them manually in a web app.
+</Note>
+
+## GET /api/auth/me
+
+Use this endpoint to check the currently authenticated user without logging in again. It returns the same shape as the login response, with the addition of `organizerProfile`, `organizerStatus`, and `hasPendingOrganizerRequest`.
+
+```bash title="Fetch current user"
+curl https://<host>/api/auth/me \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+## POST /api/auth/refresh
+
+When the access token has expired, call this endpoint to obtain a new one. You can pass the `refresh_token` in the request body or let the cookie be forwarded automatically.
+
+<ParamField body="refresh_token" type="string">
+  The refresh token. Optional if the `refresh_token` cookie is present.
+</ParamField>
+
+On success the API sets new `access_token` and `refresh_token` cookies and returns `{ "success": true, "user": { ... } }`.
+
+If no refresh token is found in either the body or the cookie, the API returns `401` with error code `MISSING_REFRESH_TOKEN`.
+
+## Examples
+
+<CodeGroup>
+```bash title="Login"
+curl -c cookies.txt -X POST https://<host>/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "ada@example.com", "password": "s3cr3tPass"}'
+```
+
+```json title="200 OK response"
+{
+  "success": true,
+  "user": {
+    "id": "11bf5b37-e0b8-42e0-8dcf-dc8c4aefc000",
+    "email": "ada@example.com",
+    "first_name": "Ada",
+    "last_name": "Lovelace",
+    "role": "organizer",
+    "organizer": { "status": "active" }
+  },
+  "isOrganizer": true,
+  "isSuperAdmin": false,
+  "redirect": "/admin"
+}
+```
+</CodeGroup>
+
+<CodeGroup>
+```bash title="Check auth state (cookie)"
+curl -b cookies.txt https://<host>/api/auth/me
+```
+
+```bash title="Check auth state (Bearer)"
+curl https://<host>/api/auth/me \
+  -H "Authorization: Bearer $TOKEN"
+```
+</CodeGroup>
+
+<CodeGroup>
+```bash title="Refresh access token (body)"
+curl -X POST https://<host>/api/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token": "<your-refresh-token>"}'
+```
+
+```bash title="Refresh access token (cookie)"
+curl -b cookies.txt -c cookies.txt \
+  -X POST https://<host>/api/auth/refresh
+```
+</CodeGroup>

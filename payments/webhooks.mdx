@@ -1,0 +1,170 @@
+---
+title: "Configure Webhooks for Payment Events"
+sidebarTitle: "Webhooks"
+description: "Receive real-time payment status updates from Events Manager by registering a webhook endpoint for checkout, PIX, payout, and transfer events."
+---
+
+Events Manager uses webhooks to receive real-time payment status notifications from AbacatePay. When a payment event occurs — a PIX is confirmed, a checkout is refunded, or a payout completes — AbacatePay sends an HTTP `POST` request to your registered webhook endpoint. The platform processes these events to update registrations, release inventory, and trigger confirmation emails.
+
+## Webhook Endpoint
+
+Events Manager exposes a single webhook endpoint that handles all AbacatePay event types:
+
+```http title="Webhook endpoint"
+POST /api/payments/webhooks/abacatepay
+```
+
+You must register this URL with AbacatePay in your dashboard. The full URL should include your secret as a query parameter (see [Security](#security) below):
+
+```text title="Full webhook URL"
+https://api.yourdomain.com/api/payments/webhooks/abacatepay?webhookSecret=YOUR_SECRET
+```
+
+<Warning>
+  AbacatePay **requires an HTTPS endpoint**. Localhost addresses, private IPs, and plain HTTP URLs will be rejected during webhook registration. You must deploy the API to a publicly accessible domain with a valid TLS certificate before testing live webhooks.
+</Warning>
+
+## Security
+
+The webhook endpoint uses two independent security checks, both of which must pass for a request to be processed:
+
+**1. URL secret parameter**
+
+The `webhookSecret` query parameter in the URL must match the value of `ABACATEPAY_WEBHOOK_SECRET` in your environment. If it does not match, the endpoint returns `401 INVALID_WEBHOOK_SECRET`.
+
+**2. HMAC-SHA256 signature**
+
+AbacatePay signs every webhook payload with your secret key and sends the signature in the `X-Webhook-Signature` header (or `X-Abacate-Signature` as a fallback). The platform computes HMAC-SHA256 over the **raw request body** and compares it to the header value. If the signature is invalid, the endpoint returns `401 INVALID_WEBHOOK_SIGNATURE`.
+
+<Note>
+  The raw body is required for signature verification. The API is configured to preserve the original bytes before any JSON parsing occurs, ensuring the HMAC is computed correctly even for payloads with unusual whitespace or character encoding.
+</Note>
+
+## Registering the Endpoint with AbacatePay
+
+<Steps>
+  <Step title="Generate a webhook secret">
+    Create a strong random secret of at least 32 characters. You can generate one with:
+
+    ```bash title="Generate a secret"
+    openssl rand -hex 32
+    ```
+
+    Set this value as `ABACATEPAY_WEBHOOK_SECRET` in your environment.
+  </Step>
+
+  <Step title="Deploy your API to HTTPS">
+    Make sure your Events Manager API is running at a publicly accessible HTTPS URL. The webhook endpoint path is `/api/payments/webhooks/abacatepay`.
+  </Step>
+
+  <Step title="Register in the AbacatePay dashboard">
+    In your AbacatePay account, add a new webhook with the full endpoint URL including your secret:
+
+    ```text
+    POST https://api.yourdomain.com/api/payments/webhooks/abacatepay?webhookSecret=YOUR_SECRET
+    ```
+  </Step>
+
+  <Step title="Subscribe to all relevant events">
+    Select the following events when configuring your webhook in AbacatePay:
+
+    - `checkout.completed`
+    - `checkout.refunded`
+    - `checkout.disputed`
+    - `checkout.lost`
+    - `transparent.completed`
+    - `transparent.refunded`
+    - `transparent.disputed`
+    - `transparent.lost`
+    - `payout.completed`
+    - `payout.failed`
+    - `transfer.completed`
+    - `transfer.failed`
+  </Step>
+</Steps>
+
+## Supported Webhook Events
+
+| Event | Category | Description |
+|---|---|---|
+| `checkout.completed` | Checkout | A hosted PIX checkout was paid successfully. |
+| `checkout.refunded` | Checkout | A checkout payment was refunded to the attendee. |
+| `checkout.disputed` | Checkout | The attendee opened a dispute on a checkout payment. |
+| `checkout.lost` | Checkout | A checkout dispute was ruled against the platform. |
+| `transparent.completed` | Installments | An individual PIX installment was paid. |
+| `transparent.refunded` | Installments | An installment payment was refunded. |
+| `transparent.disputed` | Installments | A dispute was opened on an installment charge. |
+| `transparent.lost` | Installments | An installment dispute was ruled against the platform. |
+| `payout.completed` | Payouts | A payout to an organizer's PIX key was successful. |
+| `payout.failed` | Payouts | A payout attempt failed. |
+| `transfer.completed` | Transfers | A PIX transfer to a third party was successful. |
+| `transfer.failed` | Transfers | A PIX transfer attempt failed. |
+
+## Webhook Payload Structure
+
+All events share a common envelope. The `data` object shape varies depending on whether the event relates to a checkout, a transparent installment, a payout, or a transfer:
+
+```json title="Example webhook payload – checkout.completed"
+{
+  "id": "evt_01j9abc123",
+  "event": "checkout.completed",
+  "data": {
+    "id": "data_01j9abc123",
+    "externalId": "reg_xyz789",
+    "receiptUrl": "https://receipts.abacatepay.com/r/abc123",
+    "checkout": {
+      "id": "chk_abc123",
+      "externalId": "reg_xyz789",
+      "platformFee": 4.99,
+      "methods": ["PIX"]
+    },
+    "payerInformation": {
+      "method": "PIX"
+    }
+  }
+}
+```
+
+<ParamField body="id" type="string">
+  Unique identifier for this webhook event delivery.
+</ParamField>
+
+<ParamField body="event" type="string" required>
+  The event type string (e.g., `checkout.completed`).
+</ParamField>
+
+<ParamField body="data.id" type="string">
+  Identifier for the data object in this delivery.
+</ParamField>
+
+<ParamField body="data.externalId" type="string">
+  Your platform's internal reference ID (e.g., the registration UUID).
+</ParamField>
+
+<ParamField body="data.receiptUrl" type="string (URL)">
+  Direct link to the AbacatePay payment receipt, if available.
+</ParamField>
+
+<ParamField body="data.checkout" type="object">
+  Present on `checkout.*` events. Contains the checkout `id`, `externalId`, `platformFee`, and `methods` array.
+</ParamField>
+
+<ParamField body="data.transparent" type="object">
+  Present on `transparent.*` events. Contains the transparent charge `id`, `externalId`, and `platformFee`.
+</ParamField>
+
+<ParamField body="data.payout" type="object">
+  Present on `payout.*` events. Contains the payout `id`, `externalId`, `receiptUrl`, and optional `reason`.
+</ParamField>
+
+<ParamField body="data.transfer" type="object">
+  Present on `transfer.*` events. Contains the transfer `id`, `externalId`, `receiptUrl`, and optional `reason`.
+</ParamField>
+
+## Idempotency
+
+The platform processes each webhook event exactly once. If AbacatePay retries a delivery (for example, because your server returned a non-2xx response), the platform detects the duplicate using the event's `externalId` and skips reprocessing. You do not need to implement your own deduplication logic.
+
+<Tip>
+  Always return a `200 OK` response as quickly as possible after the signature check passes. Heavy processing (like sending emails) happens asynchronously after the response is sent, so retries from AbacatePay are minimized.
+</Tip>

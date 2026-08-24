@@ -1,0 +1,136 @@
+---
+title: "PIX Installment Payments for Event Tickets"
+sidebarTitle: "PIX Installments"
+description: "Offer attendees the option to pay for tickets in 2 to 12 monthly PIX installments. Learn how to enable this feature and how the payment flow works."
+---
+
+PIX installments on Events Manager let attendees split the cost of a ticket into **2 to 12 monthly payments**, each settled via a separate PIX transfer. Unlike the hosted checkout flow — which redirects attendees to an AbacatePay-branded page — transparent installments happen entirely within your platform. The API returns a PIX QR code and copy-paste code for each installment directly, so the attendee never leaves your site.
+
+## How Transparent Installments Differ from Hosted Checkout
+
+With a **hosted checkout**, AbacatePay generates a single PIX and confirms it in one shot. With **transparent installments**, the platform creates an installment plan on AbacatePay and generates individual PIX charges for each installment due date. Each charge is a separate PIX transaction, confirmed by its own webhook event.
+
+This means:
+- Attendees are responsible for paying each installment on time.
+- Missed installments cause the plan to move to `defaulted` status.
+- The registration can be blocked if installments become overdue.
+
+## Enabling Installments on a Ticket
+
+To allow attendees to pay a ticket in installments, update the ticket configuration:
+
+| Field | Type | Description |
+|---|---|---|
+| `allow_installments` | `boolean` | Set to `true` to enable installment checkout for this ticket. |
+| `max_installments` | `integer` | Maximum number of installments allowed (2–12). |
+| `min_amount_for_installments` | `number` | Optional minimum ticket price (in BRL) required to offer installments. Useful to prevent small-value tickets from using this feature. |
+
+<Note>
+  Installments are only available when `PAYMENTS_MODE=abacatepay`. In mock mode, the installment checkout endpoint returns a simulated response.
+</Note>
+
+## Attendee Checkout Flow
+
+Once a ticket has installments enabled, the attendee submits a `POST /api/checkout/installments` request instead of the standard checkout endpoint:
+
+```json title="POST /api/checkout/installments"
+{
+  "ticket_id": "t1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "quantity": 1,
+  "installments": 4,
+  "participant_name": "João Souza",
+  "participant_email": "joao@example.com",
+  "participant_phone": "+5511988887777",
+  "participant_document": "987.654.321-00"
+}
+```
+
+<ParamField body="ticket_id" type="string (UUID)" required>
+  The UUID of the ticket type to purchase.
+</ParamField>
+
+<ParamField body="quantity" type="integer" required>
+  Number of tickets. Must be a positive integer.
+</ParamField>
+
+<ParamField body="installments" type="integer" required>
+  Number of monthly installments. Must be between **2** and **12**, and no greater than the ticket's `max_installments`.
+</ParamField>
+
+<ParamField body="participant_name" type="string" required>
+  Full name of the attendee.
+</ParamField>
+
+<ParamField body="participant_email" type="string" required>
+  Email address for confirmation and installment reminders.
+</ParamField>
+
+<ParamField body="participant_phone" type="string">
+  Phone number (optional).
+</ParamField>
+
+<ParamField body="participant_document" type="string">
+  CPF or other identifying document number (optional).
+</ParamField>
+
+The API response includes the registration record and the first installment's PIX QR code and copy-paste key, ready for the attendee to pay immediately.
+
+## Paying an Installment
+
+Each installment contains two fields for PIX payment:
+
+- **`pix_qr_code_base64`** — a base64-encoded PNG of the PIX QR code, suitable for rendering with an `<img>` tag.
+- **`pix_copy_paste`** — the PIX "copia e cola" string the attendee can paste into any banking app.
+
+Both fields are generated when the installment is created and again whenever the attendee requests a new PIX for an overdue charge.
+
+## Regenerating a PIX for an Overdue Installment
+
+If an installment is `overdue`, the original PIX may have expired. The attendee (or your frontend) can request a fresh QR code:
+
+```http title="Regenerate PIX for installment"
+POST /api/installments/:id/generate-pix
+Authorization: Bearer <token>
+```
+
+Replace `:id` with the UUID of the `PaymentInstallment` record. The response returns updated `pix_qr_code_base64` and `pix_copy_paste` fields.
+
+## Installment Statuses
+
+Each individual `PaymentInstallment` record carries one of the following statuses:
+
+| Status | Meaning |
+|---|---|
+| `pending` | The installment is due but has not been paid yet. |
+| `paid` | The PIX was confirmed and the installment is settled. |
+| `overdue` | The due date has passed without payment. A new PIX must be generated. |
+| `cancelled` | The installment plan was cancelled and this charge will not be collected. |
+
+## Installment Plan Statuses
+
+The overall installment plan (tracked on the `EventRegistration`) has its own lifecycle:
+
+| Status | Meaning |
+|---|---|
+| `active` | The plan is in progress; at least one installment is still pending or overdue. |
+| `completed` | All installments have been paid. The registration becomes fully confirmed. |
+| `defaulted` | One or more installments became overdue and the plan is considered in default. |
+
+<Warning>
+  When an installment plan enters `defaulted` status, the attendee's registration is blocked. The `blocked_reason` field on the registration is set to `overdue_installments`, and the attendee cannot check in to the event until the overdue amount is paid and the plan is brought current.
+</Warning>
+
+## Webhook Events for Transparent Payments
+
+AbacatePay fires the following webhook events for installment-based (transparent) payments. Your registered webhook endpoint (`POST /api/payments/webhooks/abacatepay`) handles them automatically:
+
+| Event | Trigger |
+|---|---|
+| `transparent.completed` | An individual PIX installment was confirmed. |
+| `transparent.refunded` | An installment payment was refunded. |
+| `transparent.disputed` | A dispute was opened on an installment charge. |
+| `transparent.lost` | A dispute was decided against the platform. |
+
+<Tip>
+  You do not need to manually handle these webhook events in your own code. The platform processes them automatically and updates the `PaymentInstallment` and `EventRegistration` records accordingly.
+</Tip>

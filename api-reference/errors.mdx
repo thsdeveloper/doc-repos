@@ -1,0 +1,118 @@
+---
+title: "API Error Responses and Status Codes"
+sidebarTitle: "Errors"
+description: "Events Manager API errors follow RFC 7807 format. Learn about HTTP status codes, error codes, and how to handle common error responses."
+---
+
+Whenever the Events Manager API cannot fulfill a request it returns a structured error response so your client can react programmatically. All error bodies use the [RFC 7807 Problem Details](https://www.rfc-editor.org/rfc/rfc7807) format with `Content-Type: application/problem+json`, and every response includes an `x-request-id` header you can share with support for faster debugging.
+
+## Error Response Format
+
+```json title="Example error response"
+{
+  "type": "https://events-manager.local/problems/validation_error",
+  "title": "VALIDATION_ERROR",
+  "status": 422,
+  "detail": "Os dados enviados são inválidos.",
+  "instance": "/api/auth/register",
+  "requestId": "req-8f3a12bc",
+  "context": {
+    "errors": {
+      "fieldErrors": {
+        "email": ["Invalid email"],
+        "password": ["String must contain at least 8 character(s)"]
+      },
+      "formErrors": []
+    }
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | string (URI) | Stable identifier for this error class |
+| `title` | string | Machine-readable error code (see table below) |
+| `status` | integer | HTTP status code echoed in the body |
+| `detail` | string | Human-readable explanation of what went wrong |
+| `instance` | string | The request path that triggered the error |
+| `requestId` | string | Unique ID for this request — include when filing a bug report |
+| `context` | object? | Optional extra data, e.g. Zod field errors for `VALIDATION_ERROR` |
+
+<Note>
+  For `500` responses, the `detail` field is always a generic message regardless of the underlying cause to avoid leaking internal state. Use `requestId` to trace the incident in your logs.
+</Note>
+
+## HTTP Status Codes
+
+### 400 Bad Request
+
+The request itself is structurally malformed — for example, the body is not valid JSON or a required query parameter is missing. Distinct from `422`, which means the body parsed successfully but failed business-rule validation.
+
+### 401 Unauthorized
+
+Your access token is missing, expired, or invalid. Refresh the token via `POST /api/auth/refresh` and retry, or prompt the user to log in again.
+
+### 403 Forbidden
+
+You are authenticated but lack the required permissions. The most common case is calling an organizer-only endpoint without the `organizer` or `admin` role — the error code will be `ORGANIZER_REQUIRED`.
+
+### 404 Not Found
+
+The requested resource does not exist or you do not have permission to know it exists. Common codes: `EVENT_NOT_FOUND`, `NOT_FOUND`.
+
+### 409 Conflict
+
+A uniqueness constraint was violated — for example, trying to register for an event you have already registered for. Error code: `CONFLICT`.
+
+### 422 Unprocessable Entity
+
+The request body parsed correctly but failed schema or business-rule validation (Zod errors). The `context.errors` field contains field-level messages. Error code: `VALIDATION_ERROR`.
+
+### 429 Too Many Requests
+
+You have exceeded a rate limit. The response includes a `Retry-After: 60` header indicating how many seconds to wait before retrying. Error code: `RATE_LIMITED`.
+
+### 500 Internal Server Error
+
+An unexpected server-side error occurred. The `detail` field is intentionally generic. Capture the `requestId` and contact support.
+
+## Known Error Codes
+
+| Code | Status | Description |
+|---|---|---|
+| `VALIDATION_ERROR` | 422 | One or more request fields failed schema validation |
+| `UNAUTHORIZED` | 401 | Missing or expired authentication token |
+| `MISSING_REFRESH_TOKEN` | 401 | `POST /api/auth/refresh` called without a refresh token |
+| `ORGANIZER_REQUIRED` | 403 | Endpoint requires organizer or admin role |
+| `NOT_FOUND` | 404 | Generic resource not found |
+| `EVENT_NOT_FOUND` | 404 | The requested event does not exist |
+| `CONFLICT` | 409 | Duplicate record — e.g. already registered for this event |
+| `INVALID_RELATION` | 422 | A referenced related record does not exist |
+| `CONSTRAINT_VIOLATION` | 422 | Data violates a database business rule |
+| `RATE_LIMITED` | 429 | Too many requests — check `Retry-After` header |
+| `INVALID_WEBHOOK_SECRET` | 401 | Webhook endpoint called without a valid secret |
+| `INVALID_WEBHOOK_SIGNATURE` | 401 | Webhook payload signature verification failed |
+| `FILE_REQUIRED` | 400 | A multipart upload request is missing its file part |
+| `INTERNAL_ERROR` | 500 | Unexpected server-side failure |
+
+## Handling Errors Gracefully
+
+Follow these practices in your integration to keep users informed and your system resilient:
+
+<Steps>
+  <Step title="Check the HTTP status code first">
+    Branch your error-handling logic on the numeric `status` (or HTTP response code) before inspecting `title`. This makes your code robust even if new error codes are introduced later.
+  </Step>
+  <Step title="Use title / code for programmatic handling">
+    Display a user-friendly message based on `title` (e.g. show a "Please log in" screen on `UNAUTHORIZED`, or highlight invalid fields on `VALIDATION_ERROR`). Avoid showing raw `detail` strings directly to end users.
+  </Step>
+  <Step title="Surface field errors from context">
+    When `title` is `VALIDATION_ERROR`, read `context.errors.fieldErrors` to highlight the specific form fields that failed rather than showing a generic error banner.
+  </Step>
+  <Step title="Respect rate limits">
+    On `429`, read the `Retry-After` header and wait that many seconds before retrying. Implement exponential back-off with jitter for automated clients.
+  </Step>
+  <Step title="Log requestId for debugging">
+    Persist the `requestId` alongside every error your client encounters. It uniquely identifies the server-side log entry and speeds up incident resolution.
+  </Step>
+</Steps>

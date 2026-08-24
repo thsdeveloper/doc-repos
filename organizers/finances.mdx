@@ -1,0 +1,116 @@
+---
+title: "Track Revenue and Transactions"
+sidebarTitle: "Finances"
+description: "Monitor your event revenue, view transaction history with filters, and export financial data as CSV from the Events Manager finance dashboard."
+---
+
+The finance dashboard at `/admin/financeiro` consolidates all revenue and transaction data for your organizer account. You can review high-level totals, filter and search individual transactions, check your payout balance, and export a full CSV of your financial history — all from one place.
+
+## Understanding the fee structure
+
+Every paid ticket transaction involves three layers of value:
+
+| Term | Description |
+|------|-------------|
+| **Gross amount** | Total amount charged to the buyer at checkout. |
+| **Platform fee** | Events Manager's percentage cut of the ticket sale. |
+| **Provider fee** | Fee charged by the payment gateway (e.g., PIX processing fee). |
+| **`organizer_net`** | What you actually receive: `gross amount − platform fee − provider fee`. |
+
+<Note>
+  The platform fee percentage and provider fees are configured by the platform administrator and visible in `GET /api/admin/event-configurations`. Your dashboard always shows both gross and net figures so you can reconcile the difference.
+</Note>
+
+## Financial overview
+
+`GET /api/organizer/finance/overview` returns aggregated financial totals for your account, optionally filtered by date:
+
+<ParamField query="date_from" type="string (ISO 8601)">
+  Start of the date filter range (inclusive).
+</ParamField>
+
+<ParamField query="date_to" type="string (ISO 8601)">
+  End of the date filter range (inclusive).
+</ParamField>
+
+<ParamField query="range" type="string">
+  A preset range shorthand. Examples: `7d`, `30d`, `90d`, `this_month`, `last_month`. Overrides `date_from` / `date_to` when provided.
+</ParamField>
+
+```http title="Example — overview for the last 30 days"
+GET /api/organizer/finance/overview?range=30d
+```
+
+## Transaction list
+
+`GET /api/organizer/finance/transactions` returns a paginated list of individual payment transactions:
+
+<ParamField query="page" type="integer">
+  Page number. Defaults to `1`.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Results per page. Min `1`, max `100`. Defaults to `20`.
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by transaction status: `succeeded`, `failed`, `pending`, or `refunded`.
+</ParamField>
+
+<ParamField query="event_id" type="string (UUID)">
+  Scope results to transactions for a specific event.
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search by participant name, email, or ticket code.
+</ParamField>
+
+<ParamField query="date_from" type="string (ISO 8601)">
+  Show transactions created on or after this date.
+</ParamField>
+
+<ParamField query="date_to" type="string (ISO 8601)">
+  Show transactions created on or before this date.
+</ParamField>
+
+<ParamField query="sort_direction" type="string">
+  Sort order: `asc` or `desc`. Defaults to `desc` (newest first).
+</ParamField>
+
+```http title="Example — pending transactions for a specific event"
+GET /api/organizer/finance/transactions?event_id=a1b2c3d4-e5f6-7890-abcd-ef1234567890&status=pending&sort_direction=asc
+```
+
+## Payouts view
+
+`GET /api/organizer/finance/payouts` returns your payout history and current available balance. The response reflects your `payout_status` (see [Payout Settings](/organizers/payout-settings)) and lists all previous disbursements with their amounts and dates.
+
+```http title="GET /api/organizer/finance/payouts"
+GET /api/organizer/finance/payouts
+```
+
+<Note>
+  **When do funds become available?** Funds from confirmed PIX transactions are typically available for payout after a platform-defined settlement window. The exact delay depends on your payout status and any holds applied by the payment provider. Your payout balance in the dashboard always reflects the amount currently cleared and ready for disbursement.
+</Note>
+
+## Finance events list
+
+`GET /api/organizer/finance/events` returns a list of your events enriched with financial totals (gross revenue, organizer net, transaction count). Use this to get a per-event revenue breakdown without filtering the full transaction list.
+
+```http title="GET /api/organizer/finance/events"
+GET /api/organizer/finance/events
+```
+
+## Exporting to CSV
+
+To download a full export of your financial data, call:
+
+```http title="GET /api/organizer/finance/export"
+GET /api/organizer/finance/export
+```
+
+The response is a `text/csv` file named `financeiro.csv`. It includes all transaction records for your organizer account: transaction ID, event, participant, ticket type, gross amount, platform fee, provider fee, organizer net, payment method, status, and date.
+
+<Tip>
+  Schedule a monthly CSV export after your last event of the month and import it into your accounting software for reconciliation. The `organizer_net` column maps directly to the amount you should have received in payouts.
+</Tip>

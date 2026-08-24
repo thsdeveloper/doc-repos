@@ -1,0 +1,139 @@
+---
+title: "POST /api/payments/checkout — Initiate Ticket Checkout"
+sidebarTitle: "Checkout"
+description: "POST /api/payments/checkout — start a PIX checkout for one or more ticket types. Returns a redirect URL to the AbacatePay hosted payment page."
+---
+
+Use this endpoint to begin a PIX payment session for one or more ticket types at an event. You supply the event ID, the ticket types and quantities you want, and participant contact details. The API reserves the requested inventory, creates a checkout session with AbacatePay, and returns a hosted-payment URL. Redirect the attendee to that URL so they can complete the PIX payment on AbacatePay's secure page. After payment, AbacatePay redirects the attendee back to your application's success or cancel URL.
+
+<Note>
+  This endpoint requires a valid user session. Include your Bearer token in the `Authorization` header on every request.
+</Note>
+
+<Warning>
+  This endpoint is **rate-limited per user**. Submitting too many checkout requests in a short window will result in a `429 Too Many Requests` response. Build in appropriate delays or back-off logic on the client side.
+</Warning>
+
+## Endpoint
+
+```
+POST /api/payments/checkout
+```
+
+## Request Body
+
+<ParamField body="eventId" type="string (UUID)" required>
+  The UUID of the event for which tickets are being purchased.
+</ParamField>
+
+<ParamField body="tickets" type="array" required>
+  One or more ticket-type selections. The array must contain **at least one item**.
+
+  <ParamField body="tickets[].ticketId" type="string (UUID)" required>
+    The UUID of the ticket type to purchase.
+  </ParamField>
+
+  <ParamField body="tickets[].quantity" type="integer" required>
+    The number of tickets to purchase for this ticket type. Must be a positive integer (≥ 1).
+  </ParamField>
+</ParamField>
+
+<ParamField body="participantInfo" type="object" required>
+  Contact and identification information for the lead participant.
+
+  <ParamField body="participantInfo.name" type="string" required>
+    Full name of the participant. Must not be empty after trimming whitespace.
+  </ParamField>
+
+  <ParamField body="participantInfo.email" type="string" required>
+    Valid email address of the participant. Used for confirmation messages and ticket delivery.
+  </ParamField>
+
+  <ParamField body="participantInfo.phone" type="string">
+    Phone number of the participant (optional). Recommended for event organizer contact.
+  </ParamField>
+
+  <ParamField body="participantInfo.document" type="string">
+    CPF, CNPJ, or other government-issued document number (optional). Some events require this for check-in.
+  </ParamField>
+</ParamField>
+
+## Response
+
+On success the API returns a **redirect URL** pointing to the AbacatePay hosted payment page. The attendee should be sent to this URL immediately so they can complete PIX payment.
+
+<ResponseField name="url" type="string">
+  The AbacatePay hosted checkout URL. Redirect the attendee's browser to this address.
+</ResponseField>
+
+<ResponseField name="checkoutId" type="string (UUID)">
+  The internal checkout group ID. Store this value so you can poll `GET /api/payments/checkout/status?checkout_id=<checkoutId>` once the attendee returns.
+</ResponseField>
+
+## Post-Checkout Flow
+
+After the attendee completes or dismisses payment on the AbacatePay page, they are redirected back to your application:
+
+- **Success page** — AbacatePay appends a `checkout_id` query parameter so you can immediately poll the status endpoint.
+- **Cancel page** — The attendee landed on the cancel URL; the checkout may still be pending briefly before it transitions to `cancelled`.
+
+<Tip>
+  Poll `GET /api/payments/checkout/status?checkout_id=<id>` every 2–3 seconds after the attendee returns until the status is either `confirmed` or `cancelled`. See the [Checkout Status](/api-reference/payments/checkout-status) page for full status semantics.
+</Tip>
+
+## Error Responses
+
+| HTTP Status | Condition |
+|-------------|-----------|
+| `400` | Request body failed validation (missing fields, invalid UUID, empty tickets array). |
+| `401` | Missing or invalid authentication token. |
+| `403` | One or more requested tickets are **sold out**, the event's registration window is **closed**, or the event itself is not in a purchasable state. |
+| `429` | Rate limit exceeded for this user. |
+| `500` | Unexpected server error. |
+
+## Examples
+
+<CodeGroup>
+
+```bash cURL — Checkout Request
+curl --request POST \
+  --url https://api.events-manager.app/api/payments/checkout \
+  --header 'Authorization: Bearer <YOUR_TOKEN>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "eventId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "tickets": [
+      {
+        "ticketId": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+        "quantity": 2
+      },
+      {
+        "ticketId": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+        "quantity": 1
+      }
+    ],
+    "participantInfo": {
+      "name": "Maria Silva",
+      "email": "maria.silva@example.com",
+      "phone": "+5511999998888",
+      "document": "123.456.789-00"
+    }
+  }'
+```
+
+```json Sample Response (200 OK)
+{
+  "url": "https://pay.abacatepay.com/checkout/checkout_abc123xyz",
+  "checkoutId": "d4e5f6a7-b8c9-0123-defa-234567890123"
+}
+```
+
+```json Error — Ticket Sold Out (403)
+{
+  "error": "TICKET_SOLD_OUT",
+  "message": "One or more of the requested tickets are no longer available.",
+  "statusCode": 403
+}
+```
+
+</CodeGroup>

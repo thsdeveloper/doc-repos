@@ -1,0 +1,89 @@
+---
+title: "Event Analytics and Sales Insights"
+sidebarTitle: "Analytics"
+description: "Track ticket sales, revenue, check-in rates, and payment method breakdowns for your events with the Events Manager analytics dashboard."
+---
+
+The analytics dashboard gives you a real-time snapshot of how your events are performing. From the main KPI cards on `/admin/dashboard` to the detailed charts on `/admin/analises`, you can track gross revenue, ticket velocity, check-in rates, and payment method distribution — all filterable by date range or individual event.
+
+## Main KPI dashboard
+
+The `GET /api/admin/dashboard` endpoint powers the top-level metrics view. It returns the following key performance indicators:
+
+<CardGroup cols={2}>
+  <Card title="Total Events" icon="calendar">
+    The total number of events you have created across all statuses.
+  </Card>
+  <Card title="Published Events" icon="globe">
+    Events currently live on the storefront and open for registrations.
+  </Card>
+  <Card title="Upcoming Events" icon="clock">
+    Published events with a `start_date` in the future.
+  </Card>
+  <Card title="Participants" icon="users">
+    Total number of confirmed registrations across all your events.
+  </Card>
+  <Card title="Tickets Sold" icon="ticket">
+    Total quantity of tickets sold (sum of `quantity` across confirmed registrations).
+  </Card>
+  <Card title="Gross Revenue" icon="circle-dollar-sign">
+    Total revenue collected from ticket sales before any fee deductions.
+  </Card>
+</CardGroup>
+
+The dashboard response also includes a `recentEvents` array with per-event summaries (title, status, start date, location, participant count, and tickets sold) so you can see which events are driving the most activity at a glance.
+
+<Note>
+  **Gross revenue vs. organizer net:** `grossRevenue` reflects the total amount buyers paid, including any service fees passed to the buyer. Your actual payout — the organizer net — is lower after the platform fee and payment provider fee are deducted. See [Finances](/organizers/finances) for the net breakdown.
+</Note>
+
+## Analytics endpoint
+
+For deeper time-series data and event-level breakdowns, use `GET /api/organizer/analytics`:
+
+<ParamField query="start_date" type="string (ISO 8601)">
+  Start of the analytics window. Filters registrations and transactions created on or after this date.
+</ParamField>
+
+<ParamField query="end_date" type="string (ISO 8601)">
+  End of the analytics window. Filters registrations and transactions created on or before this date.
+</ParamField>
+
+<ParamField query="event_id" type="string (UUID)">
+  Scope all analytics data to a single event. When omitted, data is aggregated across all your events.
+</ParamField>
+
+```http title="Example — analytics for Q3 2025 scoped to one event"
+GET /api/organizer/analytics?start_date=2025-07-01&end_date=2025-09-30&event_id=a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+## Available charts
+
+The analytics dashboard at `/admin/analises` visualizes the data returned by the analytics endpoint:
+
+<CardGroup cols={2}>
+  <Card title="Sales Over Time" icon="chart-line">
+    A time-series chart of ticket sales volume and revenue by day or week. Useful for identifying peak sales periods and the impact of marketing campaigns.
+  </Card>
+  <Card title="Payment Methods" icon="credit-card">
+    Breakdown of completed transactions by payment method (PIX, card, boleto, free). Helps you understand buyer preference.
+  </Card>
+  <Card title="Ticket Performance" icon="chart-bar">
+    Compares sold vs. available quantity for each ticket type. Spot which tiers are selling fastest and adjust pricing or inventory accordingly.
+  </Card>
+  <Card title="Check-In Heatmap" icon="map-pin">
+    Visualizes check-in activity by hour across your event day(s). Helps you staff entry gates appropriately for peak arrival windows.
+  </Card>
+</CardGroup>
+
+## Filtering analytics by date range
+
+All analytics views support date range filtering:
+
+- Use the date picker in the dashboard UI to select a custom range, or choose a preset like **Last 7 days**, **Last 30 days**, or **This month**.
+- When calling the API directly, pass `start_date` and `end_date` as ISO 8601 strings (e.g., `2025-01-01` or `2025-01-01T00:00:00-03:00`).
+- Omitting both dates returns all-time data for your organizer account.
+
+<Tip>
+  Combine the event-level filter with a tight date window just before your event to monitor last-minute sales and final check-in projections in near real time.
+</Tip>

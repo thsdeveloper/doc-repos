@@ -1,0 +1,290 @@
+---
+title: "Organizer Profile API Endpoints"
+sidebarTitle: "Profile"
+description: "GET and manage your organizer profile with the Events Manager API. Covers profile creation, partial updates, and logo image upload endpoints."
+---
+
+Your organizer profile is the foundation of your presence on Events Manager. It stores your public identity (name, description, logo), contact information, and tax/document details used during payouts. This page covers all endpoints for creating, reading, updating, and uploading a logo for your organizer profile. All endpoints on this page require a valid user session.
+
+<Note>
+  Most endpoints require only a user-level Bearer token. The logo upload endpoint (`POST /api/organizer/logo`) additionally requires the authenticated user to already have an active organizer profile (organizer role).
+</Note>
+
+---
+
+## GET /api/organizer/profile
+
+Retrieve the organizer profile associated with the currently authenticated user.
+
+```
+GET /api/organizer/profile
+```
+
+### Response
+
+<ResponseField name="organizer" type="object">
+  The full organizer record for the authenticated user.
+
+  <ResponseField name="organizer.id" type="string (UUID)">
+    Unique identifier for the organizer.
+  </ResponseField>
+
+  <ResponseField name="organizer.status" type="string (enum)">
+    Account status: `active`, `pending`, or `archived`.
+  </ResponseField>
+
+  <ResponseField name="organizer.name" type="string">
+    Display name of the organizer.
+  </ResponseField>
+
+  <ResponseField name="organizer.email" type="string">
+    Contact email for the organizer.
+  </ResponseField>
+
+  <ResponseField name="organizer.phone" type="string | null">
+    Phone number, if configured.
+  </ResponseField>
+
+  <ResponseField name="organizer.description" type="string | null">
+    Public description shown on the organizer's profile page.
+  </ResponseField>
+
+  <ResponseField name="organizer.website" type="string (URL) | null">
+    Website URL, if configured.
+  </ResponseField>
+
+  <ResponseField name="organizer.document" type="string | null">
+    CPF or CNPJ of the organizer.
+  </ResponseField>
+
+  <ResponseField name="organizer.logo" type="string (UUID) | null">
+    UUID of the uploaded logo media file.
+  </ResponseField>
+
+  <ResponseField name="organizer.payout_pix_key" type="string | null">
+    The PIX key registered for receiving payouts.
+  </ResponseField>
+
+  <ResponseField name="organizer.payout_pix_key_type" type="string | null">
+    Type of the PIX key: `CPF`, `CNPJ`, `PHONE`, `EMAIL`, or `RANDOM`.
+  </ResponseField>
+
+  <ResponseField name="organizer.payout_status" type="string">
+    Payout readiness: `not_configured`, `pending_review`, `enabled`, or `blocked`.
+  </ResponseField>
+</ResponseField>
+
+---
+
+## POST /api/organizer/request
+
+Submit a request to become an organizer. Use this endpoint when a regular user wants to apply for organizer status. The platform will review the request and activate the account.
+
+```
+POST /api/organizer/request
+```
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Organizer display name. Minimum 2 characters after trimming.
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  Contact email address (valid email format).
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  Public description of the organizer. Minimum 10 characters after trimming.
+</ParamField>
+
+<ParamField body="phone" type="string">
+  Phone number (optional).
+</ParamField>
+
+<ParamField body="website" type="string (URL)">
+  Website URL (optional). Must be a valid `http://` or `https://` URL or an empty string.
+</ParamField>
+
+<ParamField body="document" type="string">
+  CPF or CNPJ (optional).
+</ParamField>
+
+<ParamField body="logo" type="string (UUID)">
+  UUID of a previously uploaded media file to use as the logo (optional).
+</ParamField>
+
+**Returns `201 Created`** with `{ success: true, organizer }`.
+
+---
+
+## POST /api/organizer/profile
+
+Create an organizer profile directly. Functionally similar to the request endpoint; `name` is required and `description` has no minimum length constraint.
+
+```
+POST /api/organizer/profile
+```
+
+### Request Body
+
+Same fields as `POST /api/organizer/request` above, except `description` does not enforce a minimum length of 10.
+
+**Returns `201 Created`** with `{ success: true, organizer }`.
+
+---
+
+## PATCH /api/organizer/profile
+
+Update one or more fields on your existing organizer profile. All fields are optional — only send the fields you want to change.
+
+```
+PATCH /api/organizer/profile
+```
+
+### Request Body
+
+<ParamField body="name" type="string">
+  New display name. Minimum 2 characters after trimming.
+</ParamField>
+
+<ParamField body="email" type="string">
+  New contact email (valid email format).
+</ParamField>
+
+<ParamField body="phone" type="string | null">
+  Phone number. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="description" type="string | null">
+  Updated public description. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="website" type="string (URL) | null">
+  Updated website URL. Must be a valid `http://` or `https://` URL, an empty string, or `null`.
+</ParamField>
+
+<ParamField body="document" type="string | null">
+  Updated CPF or CNPJ. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="logo" type="string (UUID)">
+  UUID of a media file to use as the new logo.
+</ParamField>
+
+**Returns `200 OK`** with `{ success: true, organizer }`.
+
+---
+
+## POST /api/organizer/logo
+
+Upload a new logo image for your organizer profile using a `multipart/form-data` request. This endpoint requires the organizer role.
+
+```
+POST /api/organizer/logo
+Content-Type: multipart/form-data
+```
+
+### Form Fields
+
+<ParamField body="file" type="file" required>
+  The image file to upload. Standard web image formats (JPEG, PNG, WebP, SVG) are accepted. The uploaded file is stored in the `organizers` media folder and the organizer's `logo` field is updated automatically.
+</ParamField>
+
+### Response
+
+<ResponseField name="success" type="boolean">
+  `true` on successful upload and profile update.
+</ResponseField>
+
+<ResponseField name="file" type="object">
+  The uploaded `MediaFile` record including `id`, `path`, `filename`, `type`, `filesize`, `width`, and `height`.
+</ResponseField>
+
+<ResponseField name="organizer" type="object">
+  The updated organizer profile with the new `logo` UUID set.
+</ResponseField>
+
+---
+
+## Error Responses
+
+| HTTP Status | Condition |
+|-------------|-----------|
+| `400` | Validation failure or no file was included in the upload request. |
+| `401` | Missing or invalid authentication token. |
+| `403` | Logo upload attempted by a user without an active organizer profile. |
+| `404` | Organizer profile not found (GET/PATCH). |
+| `409` | An organizer profile already exists for this user (POST create). |
+
+---
+
+## Examples
+
+<CodeGroup>
+
+```bash cURL — GET Profile
+curl --request GET \
+  --url https://api.events-manager.app/api/organizer/profile \
+  --header 'Authorization: Bearer <YOUR_TOKEN>'
+```
+
+```json GET Profile Response (200 OK)
+{
+  "organizer": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "status": "active",
+    "name": "TechEvents Brasil",
+    "email": "contato@techevents.com.br",
+    "phone": "+5511999998888",
+    "description": "Somos uma empresa especializada em eventos de tecnologia.",
+    "website": "https://techevents.com.br",
+    "document": "12.345.678/0001-90",
+    "logo": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "payout_pix_key": "contato@techevents.com.br",
+    "payout_pix_key_type": "EMAIL",
+    "payout_status": "enabled"
+  }
+}
+```
+
+```bash cURL — PATCH Profile
+curl --request PATCH \
+  --url https://api.events-manager.app/api/organizer/profile \
+  --header 'Authorization: Bearer <YOUR_TOKEN>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "phone": "+5511977776666",
+    "description": "Eventos de tecnologia e inovação em todo o Brasil.",
+    "website": "https://techevents.com.br"
+  }'
+```
+
+```json PATCH Profile Response (200 OK)
+{
+  "success": true,
+  "organizer": {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "status": "active",
+    "name": "TechEvents Brasil",
+    "email": "contato@techevents.com.br",
+    "phone": "+5511977776666",
+    "description": "Eventos de tecnologia e inovação em todo o Brasil.",
+    "website": "https://techevents.com.br",
+    "document": "12.345.678/0001-90",
+    "logo": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "payout_pix_key": "contato@techevents.com.br",
+    "payout_pix_key_type": "EMAIL",
+    "payout_status": "enabled"
+  }
+}
+```
+
+```bash cURL — Upload Logo
+curl --request POST \
+  --url https://api.events-manager.app/api/organizer/logo \
+  --header 'Authorization: Bearer <YOUR_TOKEN>' \
+  --form 'file=@/path/to/logo.png'
+```
+
+</CodeGroup>

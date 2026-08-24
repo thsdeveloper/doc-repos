@@ -1,0 +1,169 @@
+---
+title: "POST /api/events — Create a New Event"
+sidebarTitle: "Create Event"
+description: "POST /api/events — create a new event as an organizer. Accepts full event details and returns the created event with its ID and slug."
+---
+
+Creating an event is the first step toward selling tickets on Events Manager. You submit all the details about your event — title, dates, location, ticket configuration — and the API returns the newly created event object with its assigned `id` and `slug`. Your account must have an **active organizer profile** before you can create events. Events are created as `draft` by default unless you explicitly set `status` to `published` in the request body.
+
+## Endpoint
+
+```
+POST /api/events
+```
+
+**Authentication required.** Include your bearer token in the `Authorization` header. Your organizer profile must have `status: active`.
+
+## Request Body
+
+<ParamField body="title" type="string" required>
+  Display name for the event. Minimum **3** characters after trimming whitespace.
+</ParamField>
+
+<ParamField body="slug" type="string" required>
+  URL-friendly identifier for the event. Must be at least **3** characters and match the pattern `^[a-z0-9]+(?:-[a-z0-9]+)*$` — lowercase letters and digits separated by single hyphens, e.g. `workshop-ux-design-2025`. Must be unique across all events.
+</ParamField>
+
+<ParamField body="start_date" type="string" required>
+  ISO 8601 datetime string for when the event begins, e.g. `"2025-09-15T09:00:00-03:00"`. Converted to UTC internally.
+</ParamField>
+
+<ParamField body="end_date" type="string" required>
+  ISO 8601 datetime string for when the event ends. Must be strictly **after** `start_date`, otherwise the request is rejected with a validation error on `end_date`.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Full description of the event. Supports rich text / HTML. Pass `null` to leave blank.
+</ParamField>
+
+<ParamField body="short_description" type="string">
+  Short summary for listings, cards, and social previews. Pass `null` to leave blank.
+</ParamField>
+
+<ParamField body="cover_image" type="string (UUID)">
+  UUID of a media file you have already uploaded. Pass `null` to leave the cover image unset.
+</ParamField>
+
+<ParamField body="category_id" type="string (UUID)">
+  UUID of an event category from `GET /api/event-categories`. Pass `null` to leave uncategorised.
+</ParamField>
+
+<ParamField body="event_type" type="string">
+  Format of the event. One of `in_person`, `online`, or `hybrid`. Pass `null` if not specified.
+</ParamField>
+
+<ParamField body="location_name" type="string">
+  Human-readable venue name, e.g. `"Teatro Municipal"`. Pass `null` for online events.
+</ParamField>
+
+<ParamField body="location_address" type="string">
+  Full street address of the venue. Pass `null` for online events.
+</ParamField>
+
+<ParamField body="online_url" type="string (URL)">
+  HTTP or HTTPS link to the online meeting or stream. Required for `online` or `hybrid` events. Must be a valid HTTP/HTTPS URL. Pass `null` for in-person events.
+</ParamField>
+
+<ParamField body="max_attendees" type="integer">
+  Maximum total number of attendees. Must be a positive integer. Pass `null` for unlimited capacity.
+</ParamField>
+
+<ParamField body="registration_start" type="string (ISO 8601)">
+  Datetime when ticket sales open. Pass `null` to open sales immediately on publish.
+</ParamField>
+
+<ParamField body="registration_end" type="string (ISO 8601)">
+  Datetime when ticket sales close. Must be after `registration_start` when both are provided. Pass `null` to close sales automatically when the event starts.
+</ParamField>
+
+<ParamField body="is_free" type="boolean" default="false">
+  Set to `true` to mark the event as free. Affects how it appears in listings.
+</ParamField>
+
+<ParamField body="featured" type="boolean" default="false">
+  Set to `true` to flag the event for featured placement in discovery surfaces.
+</ParamField>
+
+<ParamField body="tags" type="string[]" default="[]">
+  Array of keyword strings to help attendees discover the event, e.g. `["design", "ux", "workshop"]`.
+</ParamField>
+
+<ParamField body="status" type="string" default="draft">
+  Lifecycle status of the event. One of `published`, `draft`, `cancelled`, or `archived`. New events default to `draft` if omitted.
+</ParamField>
+
+## Response
+
+Returns **HTTP 201 Created** with the full event object, identical in shape to the response from [Get Event by Slug](/api-reference/events/get-by-slug), including the server-assigned `id`, resolved `slug`, timestamps, and an empty `tickets` array.
+
+## Error Responses
+
+| HTTP Status | Error Code | Description |
+|---|---|---|
+| `403 Forbidden` | `ORGANIZER_REQUIRED` | Your account does not have an active organizer profile. Contact support to activate your organizer status. |
+| `400 Bad Request` | — | Validation failed. The response body will contain a `message` describing the failing field (e.g. `end_date` before `start_date`). |
+
+<Note>
+  After creating an event, add ticket types with [POST /api/admin/ingressos](/api-reference/tickets/create). An event without ticket types cannot accept registrations.
+</Note>
+
+## Example
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://api.events-manager.com/api/events \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Workshop de UX Design",
+    "slug": "workshop-ux-design-2025",
+    "description": "<p>Um workshop prático e intensivo de UX Design voltado para designers e desenvolvedores.</p>",
+    "short_description": "Aprenda técnicas modernas de UX em um workshop prático de um dia.",
+    "cover_image": null,
+    "category_id": "c0a1b2c3-0001-4d5e-9f0a-000000000010",
+    "event_type": "in_person",
+    "start_date": "2025-09-15T09:00:00-03:00",
+    "end_date": "2025-09-15T18:00:00-03:00",
+    "location_name": "Centro de Inovação SP",
+    "location_address": "Av. Paulista, 1000 — Bela Vista, São Paulo, SP",
+    "online_url": null,
+    "max_attendees": 100,
+    "registration_start": null,
+    "registration_end": "2025-09-14T23:59:00-03:00",
+    "is_free": false,
+    "featured": false,
+    "tags": ["ux", "design", "workshop"],
+    "status": "draft"
+  }'
+```
+
+</CodeGroup>
+
+```json Sample Response — 201 Created
+{
+  "id": "b3d2f1a0-0001-4e3c-a1b2-000000000001",
+  "title": "Workshop de UX Design",
+  "slug": "workshop-ux-design-2025",
+  "description": "<p>Um workshop prático e intensivo de UX Design voltado para designers e desenvolvedores.</p>",
+  "short_description": "Aprenda técnicas modernas de UX em um workshop prático de um dia.",
+  "cover_image": null,
+  "organizer_id": "a0b1c2d3-0001-4e5f-8a9b-000000000020",
+  "category_id": "c0a1b2c3-0001-4d5e-9f0a-000000000010",
+  "event_type": "in_person",
+  "start_date": "2025-09-15T12:00:00.000Z",
+  "end_date": "2025-09-15T21:00:00.000Z",
+  "location_name": "Centro de Inovação SP",
+  "location_address": "Av. Paulista, 1000 — Bela Vista, São Paulo, SP",
+  "online_url": null,
+  "max_attendees": 100,
+  "registration_start": null,
+  "registration_end": "2025-09-15T02:59:00.000Z",
+  "is_free": false,
+  "featured": false,
+  "tags": ["ux", "design", "workshop"],
+  "status": "draft",
+  "date_created": "2025-07-01T14:30:00.000Z",
+  "tickets": []
+}
+```

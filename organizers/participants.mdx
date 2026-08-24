@@ -1,0 +1,150 @@
+---
+title: "Manage Event Participants and Check-Ins"
+sidebarTitle: "Participants"
+description: "Search, filter, and manage attendees across all your events. Update participant details, track check-ins, and monitor payment status."
+---
+
+The participants panel at `/admin/participantes` gives you a unified view of everyone who has registered for any of your events. You can search by name or email, filter by event, ticket type, registration status, and payment status, then drill into individual records to update details, process check-ins, or cancel a registration.
+
+## Participant detail fields
+
+Each participant record contains the following key fields:
+
+| Field | Description |
+|-------|-------------|
+| `participant_name` | Full name of the attendee. |
+| `participant_email` | Contact email. |
+| `participant_phone` | Phone number (optional). |
+| `participant_document` | CPF or other ID document (optional). |
+| `ticket_code` | Unique code for the ticket — used for QR code check-in. |
+| `check_in_date` | Timestamp of when the attendee checked in, or `null` if not yet checked in. |
+| `payment_status` | One of `free`, `paid`, `pending`, or `refunded`. |
+| `status` | The overall registration status (see below). |
+| `notes` | Internal notes visible only to you and your team. |
+
+## Registration statuses
+
+| Status | Description |
+|--------|-------------|
+| `confirmed` | Registration is active and payment is complete (or ticket is free). |
+| `pending` | Registration has been created but payment has not yet been confirmed. |
+| `partial_payment` | A PIX installment plan is active and at least one installment is paid. |
+| `payment_overdue` | One or more installments are past their due date. |
+| `cancelled` | Registration has been cancelled. The attendee will not be admitted. |
+| `checked_in` | The attendee has physically checked in at the event. |
+
+## Listing and filtering participants
+
+Use `GET /api/admin/participantes` to fetch a paginated list of participants. All query parameters are optional.
+
+<ParamField query="page" type="integer">
+  Page number for pagination. Defaults to `1`.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Number of results per page. Min `1`, max `100`. Defaults to `25`.
+</ParamField>
+
+<ParamField query="search" type="string">
+  Full-text search across participant name and email.
+</ParamField>
+
+<ParamField query="eventIds" type="string">
+  Comma-separated list of event UUIDs to filter by specific events.
+</ParamField>
+
+<ParamField query="ticketTypeIds" type="string">
+  Comma-separated list of ticket type UUIDs to filter by specific ticket types.
+</ParamField>
+
+<ParamField query="registrationStatus" type="string">
+  Filter by registration status (e.g., `confirmed`, `cancelled`).
+</ParamField>
+
+<ParamField query="paymentStatus" type="string">
+  Filter by payment status (e.g., `paid`, `pending`, `refunded`).
+</ParamField>
+
+<ParamField query="hasCheckedIn" type="string">
+  Filter by check-in status. Accepts `"true"` or `"false"`.
+</ParamField>
+
+<ParamField query="sortField" type="string">
+  Field to sort results by. One of `date_created`, `participant_name`, `payment_status`, or `status`. Defaults to `date_created`.
+</ParamField>
+
+<ParamField query="sortDirection" type="string">
+  Sort order. `asc` or `desc`. Defaults to `desc`.
+</ParamField>
+
+```http title="Example — list confirmed, checked-in participants for an event"
+GET /api/admin/participantes?eventIds=a1b2c3d4-e5f6-7890-abcd-ef1234567890&registrationStatus=confirmed&hasCheckedIn=true&sortField=participant_name&sortDirection=asc
+```
+
+## Viewing a single participant
+
+```http title="GET /api/admin/participantes/:id"
+GET /api/admin/participantes/b2c3d4e5-f6a7-8901-bcde-f12345678901
+```
+
+Returns the full registration record including ticket details, payment history, installment plan (if any), and internal notes.
+
+## Editing participant details
+
+You can update a participant's contact details without cancelling and re-creating the registration:
+
+```json title="PATCH /api/admin/participantes/:id/edit"
+{
+  "participant_name": "Maria Oliveira",
+  "participant_email": "maria@example.com",
+  "participant_phone": "+55 21 98888-7777",
+  "participant_document": "123.456.789-00",
+  "notes": "Participante VIP — reservar mesa frontal."
+}
+```
+
+## Managing check-ins
+
+### Record a check-in
+
+```http title="POST /api/admin/participantes/:id/checkin"
+POST /api/admin/participantes/b2c3d4e5-f6a7-8901-bcde-f12345678901/checkin
+```
+
+Sets `check_in_date` to the current timestamp and updates the registration status to `checked_in`.
+
+### Undo a check-in
+
+```http title="DELETE /api/admin/participantes/:id/checkin"
+DELETE /api/admin/participantes/b2c3d4e5-f6a7-8901-bcde-f12345678901/checkin
+```
+
+Clears `check_in_date` and reverts the status back to `confirmed`.
+
+## Cancelling a registration
+
+To cancel a registration, provide a reason (minimum 3 characters):
+
+```json title="POST /api/admin/participantes/:id/cancel"
+{
+  "reason": "Solicitação de reembolso pelo participante em 15/09/2025."
+}
+```
+
+<Warning>
+  Cancelling a registration does **not** automatically trigger a refund. You must process refunds separately through your payment gateway or manually. Always document the cancellation reason for your records.
+</Warning>
+
+## Exporting participant data
+
+To download a CSV of all participants matching your current filters, use:
+
+```http title="GET /api/admin/participantes/export"
+GET /api/admin/participantes/export
+```
+
+The response is a `text/csv` file named `participantes.csv` containing all participant records for your organizer account. Apply query parameters (same as the list endpoint) to export a filtered subset.
+
+<Tip>
+  Use the export feature before your event to prepare check-in staff with a printed backup list, especially for venues with limited internet connectivity.
+</Tip>

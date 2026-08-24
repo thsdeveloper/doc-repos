@@ -1,0 +1,128 @@
+---
+title: "Environment Variables Reference for Events Manager"
+sidebarTitle: "Environment Variables"
+description: "Configure Events Manager with environment variables covering payment mode, SMTP credentials, external API keys, and reconciliation settings."
+---
+
+Events Manager is configured entirely through environment variables, making it straightforward to deploy on any cloud provider, container platform, or bare-metal server. All variables should be set in your server environment or a `.env` file that is **never committed to source control**. The table and descriptions below cover every variable that affects platform behavior in a deployed instance.
+
+## Payment Settings
+
+These variables control how Events Manager connects to the AbacatePay payment gateway and how it handles background payment reconciliation.
+
+<ParamField body="PAYMENTS_MODE" type="string" default="mock">
+  Controls which payment adapter is used.
+
+  - `mock` — All checkouts are confirmed locally without any external calls. Use this during local development and CI. No AbacatePay credentials are needed.
+  - `abacatepay` — Connects to the live AbacatePay API. Requires `ABACATEPAY_API_KEY` and a publicly accessible HTTPS webhook endpoint.
+</ParamField>
+
+<ParamField body="ABACATEPAY_API_KEY" type="string">
+  Your AbacatePay API key, obtained from the AbacatePay merchant dashboard. Required when `PAYMENTS_MODE=abacatepay`. Leave blank in development.
+</ParamField>
+
+<ParamField body="ABACATEPAY_BASE_URL" type="string" default="https://api.abacatepay.com/v2">
+  Base URL for the AbacatePay API. You should not need to change this unless AbacatePay provides a staging environment URL for testing.
+</ParamField>
+
+<ParamField body="ABACATEPAY_WEBHOOK_SECRET" type="string">
+  A secret string used to authenticate incoming webhooks from AbacatePay. This value must match the `webhookSecret` query parameter you append to your webhook endpoint URL when registering it in the AbacatePay dashboard. Generate a strong random value with `openssl rand -hex 32`.
+</ParamField>
+
+<ParamField body="PAYMENT_RECONCILIATION_INTERVAL_SECONDS" type="integer" default="60">
+  How often (in seconds) the background reconciliation job runs to check the status of stuck `pending` checkouts with AbacatePay. Only active when `PAYMENTS_MODE=abacatepay`.
+</ParamField>
+
+<ParamField body="PAYMENT_RECONCILIATION_MIN_AGE_MINUTES" type="integer" default="20">
+  Minimum age (in minutes) a pending checkout must reach before the reconciliation job will query AbacatePay for its status. This prevents the job from polling checkouts that are still actively being paid.
+</ParamField>
+
+<ParamField body="PAYMENT_RECONCILIATION_BATCH_SIZE" type="integer" default="25">
+  Maximum number of pending checkouts (and installments) the reconciliation job processes in a single run. Increase this value if your instance processes very high ticket volumes and reconciliation falls behind.
+</ParamField>
+
+## Email (SMTP)
+
+Events Manager sends transactional emails — registration confirmations, OTP verification codes, and password reset links — through your SMTP server. All six variables below must be set for email delivery to work.
+
+<ParamField body="SMTP_HOST" type="string" default="127.0.0.1">
+  Hostname or IP address of your SMTP server. In local development, this defaults to the bundled Mailpit mail catcher.
+</ParamField>
+
+<ParamField body="SMTP_PORT" type="integer" default="55325">
+  TCP port for the SMTP connection. Common values are `587` (STARTTLS), `465` (TLS), or `25` (plain). The default `55325` is the Mailpit port used in the local Supabase stack.
+</ParamField>
+
+<ParamField body="SMTP_SECURE" type="boolean" default="false">
+  Set to `true` to use implicit TLS (port 465). Set to `false` to use STARTTLS or a plain connection. Most production providers use `true`.
+</ParamField>
+
+<ParamField body="SMTP_USER" type="string">
+  SMTP authentication username. Leave blank if your local server does not require authentication.
+</ParamField>
+
+<ParamField body="SMTP_PASSWORD" type="string">
+  SMTP authentication password. Leave blank if your local server does not require authentication.
+</ParamField>
+
+<ParamField body="EMAIL_FROM" type="string" default="Events Manager <hello@events.local>">
+  The sender name and email address used for all outgoing transactional emails. Must follow the format `Display Name <address@domain.com>`. Use a verified sender domain in production to avoid spam filters.
+</ParamField>
+
+## Optional Integrations
+
+<ParamField body="OPENAI_API_KEY" type="string">
+  An OpenAI API key. When provided, the platform enables AI-powered features such as event description generation and content suggestions. Leave blank to disable all AI features.
+</ParamField>
+
+<ParamField body="GOOGLE_PLACES_API_KEY" type="string">
+  A Google Maps Platform API key with the Places API enabled. When provided, event location fields gain address autocomplete. Leave blank to use manual text entry for addresses.
+</ParamField>
+
+## Application URLs
+
+<ParamField body="WEB_URL" type="string" default="http://localhost:3003">
+  The public-facing URL of your Events Manager web application. Used by the API to construct redirect URLs for checkout success/cancel pages and confirmation email links. Set this to your production domain in deployed environments (e.g., `https://events.yourdomain.com`).
+</ParamField>
+
+<ParamField body="NEXT_PUBLIC_SITE_URL" type="string" default="http://localhost:3003">
+  The same public URL, exposed to the Next.js frontend as a build-time and runtime environment variable. Should match `WEB_URL` in all environments.
+</ParamField>
+
+## Full `.env.example` Reference
+
+```dotenv title=".env.example"
+# Application
+NODE_ENV=development
+API_HOST=0.0.0.0
+API_PORT=3333
+TRUST_PROXY_HOPS=0
+API_INTERNAL_URL=http://127.0.0.1:3333
+WEB_URL=http://localhost:3003
+NEXT_PUBLIC_SITE_URL=http://localhost:3003
+
+# Payments: mock is the safe default for local development
+PAYMENTS_MODE=mock
+ABACATEPAY_API_KEY=
+ABACATEPAY_BASE_URL=https://api.abacatepay.com/v2
+ABACATEPAY_WEBHOOK_SECRET=
+PAYMENT_RECONCILIATION_INTERVAL_SECONDS=60
+PAYMENT_RECONCILIATION_MIN_AGE_MINUTES=20
+PAYMENT_RECONCILIATION_BATCH_SIZE=25
+
+# Optional integrations
+OPENAI_API_KEY=
+GOOGLE_PLACES_API_KEY=
+
+# SMTP – local Supabase Mailpit defaults
+SMTP_HOST=127.0.0.1
+SMTP_PORT=55325
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASSWORD=
+EMAIL_FROM=Events Manager <hello@events.local>
+```
+
+<Warning>
+  Never commit real API keys, SMTP passwords, or webhook secrets to version control. Use secrets management tools (e.g., AWS Secrets Manager, Doppler, or Vault) to inject sensitive values at runtime in production environments.
+</Warning>

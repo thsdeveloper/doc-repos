@@ -1,0 +1,174 @@
+---
+title: "GET /api/payments/checkout/status — Check Payment Status"
+sidebarTitle: "Checkout Status"
+description: "GET /api/payments/checkout/status — query the status of a checkout or registration payment. Returns confirmed, pending, attention, or cancelled."
+---
+
+After an attendee completes the AbacatePay hosted payment page and is redirected back to your application, use this endpoint to confirm whether the payment was successful. You can identify the session by either the `checkout_id` returned from the checkout endpoint or by a specific `registration_id`. Exactly one of the two query parameters must be supplied on each request.
+
+<Note>
+  Authentication is required. Include your Bearer token in the `Authorization` header.
+</Note>
+
+## Endpoint
+
+```
+GET /api/payments/checkout/status
+```
+
+## Query Parameters
+
+Provide **exactly one** of the following parameters. Supplying both or neither will return a `400` validation error.
+
+<ParamField query="checkout_id" type="string (UUID)">
+  The checkout group ID returned by `POST /api/payments/checkout`. Use this to check the combined status of all registrations created in a single checkout session.
+</ParamField>
+
+<ParamField query="registration_id" type="string (UUID)">
+  The UUID of a specific event registration. Use this when you need to check the status of a single registration (e.g., from a saved record or installment flow).
+</ParamField>
+
+## Response
+
+<ResponseField name="status" type="string (enum)">
+  Aggregate status of the checkout session or registration. One of:
+
+  | Value | Meaning |
+  |-------|---------|
+  | `confirmed` | Payment was successful. All linked registrations are active and ticket codes have been issued. |
+  | `pending` | Payment was initiated (PIX generated) but has not yet been confirmed by AbacatePay. Safe to keep polling. |
+  | `attention` | An action may be required — for example, an installment is overdue or a dispute has been opened. Surface this to the attendee. |
+  | `cancelled` | The checkout was cancelled or expired without a completed payment. No active registrations exist. |
+</ResponseField>
+
+<ResponseField name="registrations" type="array">
+  Array of registration objects linked to this checkout session.
+
+  <ResponseField name="registrations[].id" type="string (UUID)">
+    Unique identifier of this registration record.
+  </ResponseField>
+
+  <ResponseField name="registrations[].status" type="string">
+    Lifecycle status of the registration (e.g. `confirmed`, `pending`, `cancelled`, `checked_in`).
+  </ResponseField>
+
+  <ResponseField name="registrations[].paymentStatus" type="string | null">
+    Payment-level status (e.g. `paid`, `pending`, `refunded`, `free`). `null` for free tickets.
+  </ResponseField>
+
+  <ResponseField name="registrations[].totalAmount" type="number | null">
+    Total amount charged for this registration in BRL. `null` for free tickets.
+  </ResponseField>
+
+  <ResponseField name="registrations[].ticketCode" type="string | null">
+    The unique ticket code issued to the attendee upon confirmed payment. `null` until `confirmed`.
+  </ResponseField>
+
+  <ResponseField name="registrations[].event" type="object">
+    Summary of the event this registration belongs to.
+
+    <ResponseField name="registrations[].event.id" type="string (UUID)">
+      Event UUID.
+    </ResponseField>
+
+    <ResponseField name="registrations[].event.title" type="string">
+      Event display title.
+    </ResponseField>
+
+    <ResponseField name="registrations[].event.slug" type="string">
+      URL-friendly event slug.
+    </ResponseField>
+  </ResponseField>
+</ResponseField>
+
+## Status Polling Pattern
+
+<Tip>
+  After AbacatePay redirects the attendee back to your success page, begin polling this endpoint every **2–3 seconds**. Stop polling when status reaches `confirmed` or `cancelled`. For most PIX payments, confirmation arrives within 10–30 seconds of the attendee scanning the QR code.
+</Tip>
+
+A typical polling loop looks like:
+
+1. Attendee lands on your success page with `?checkout_id=<id>` in the URL.
+2. Call `GET /api/payments/checkout/status?checkout_id=<id>`.
+3. If `status === "confirmed"` → show the ticket code and stop polling.
+4. If `status === "cancelled"` → show an error/retry prompt and stop polling.
+5. If `status === "pending"` or `"attention"` → wait 2–3 s and repeat from step 2.
+
+## Error Responses
+
+| HTTP Status | Condition |
+|-------------|-----------|
+| `400` | Neither or both query parameters were supplied. |
+| `401` | Missing or invalid authentication token. |
+| `404` | No checkout or registration found for the provided ID. |
+
+## Examples
+
+<CodeGroup>
+
+```bash cURL — Query by checkout_id
+curl --request GET \
+  --url 'https://api.events-manager.app/api/payments/checkout/status?checkout_id=d4e5f6a7-b8c9-0123-defa-234567890123' \
+  --header 'Authorization: Bearer <YOUR_TOKEN>'
+```
+
+```bash cURL — Query by registration_id
+curl --request GET \
+  --url 'https://api.events-manager.app/api/payments/checkout/status?registration_id=e5f6a7b8-c9d0-1234-efab-345678901234' \
+  --header 'Authorization: Bearer <YOUR_TOKEN>'
+```
+
+```json Sample Response — Confirmed (200 OK)
+{
+  "status": "confirmed",
+  "registrations": [
+    {
+      "id": "e5f6a7b8-c9d0-1234-efab-345678901234",
+      "status": "confirmed",
+      "paymentStatus": "paid",
+      "totalAmount": 150.00,
+      "ticketCode": "EVT-20240815-A3X9",
+      "event": {
+        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "title": "Tech Summit 2024",
+        "slug": "tech-summit-2024"
+      }
+    },
+    {
+      "id": "f6a7b8c9-d0e1-2345-fabc-456789012345",
+      "status": "confirmed",
+      "paymentStatus": "paid",
+      "totalAmount": 75.00,
+      "ticketCode": "EVT-20240815-B7Y2",
+      "event": {
+        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "title": "Tech Summit 2024",
+        "slug": "tech-summit-2024"
+      }
+    }
+  ]
+}
+```
+
+```json Sample Response — Pending (200 OK)
+{
+  "status": "pending",
+  "registrations": [
+    {
+      "id": "e5f6a7b8-c9d0-1234-efab-345678901234",
+      "status": "pending",
+      "paymentStatus": "pending",
+      "totalAmount": 150.00,
+      "ticketCode": null,
+      "event": {
+        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "title": "Tech Summit 2024",
+        "slug": "tech-summit-2024"
+      }
+    }
+  ]
+}
+```
+
+</CodeGroup>

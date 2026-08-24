@@ -1,0 +1,233 @@
+---
+title: "PATCH /api/admin/ingressos/:id — Update a Ticket Type"
+sidebarTitle: "Update Ticket"
+description: "PATCH /api/admin/ingressos/:id — update a ticket type for your event. All fields optional. Use to change price, quantity, or sale dates."
+---
+
+After creating a ticket type you can update any of its fields at any time using this endpoint. Only the fields you include in the request body are changed — all other fields remain as they are. Common reasons to update a ticket type include adjusting the stock quantity, changing the price before sales open, toggling the status between `active` and `inactive`, or enabling PIX installments. You must own the parent event to update its ticket types.
+
+## Endpoint
+
+```
+PATCH /api/admin/ingressos/:id
+```
+
+**Authentication required.** Your organizer profile must be active and you must own the event that the ticket type belongs to.
+
+## Path Parameters
+
+<ParamField path="id" type="string (UUID)" required>
+  The unique identifier of the ticket type to update.
+</ParamField>
+
+## Request Body
+
+All fields are optional. Include only the fields you want to change. The full set of updatable fields mirrors [POST /api/admin/ingressos](/api-reference/tickets/create):
+
+<ParamField body="title" type="string">
+  Updated display name for the ticket type.
+</ParamField>
+
+<ParamField body="description" type="string">
+  Updated description. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="quantity" type="integer">
+  Updated total stock. Must be a positive integer.
+</ParamField>
+
+<ParamField body="price" type="number">
+  Updated organizer net price in BRL. Must be non-negative.
+</ParamField>
+
+<ParamField body="service_fee_type" type="string">
+  Updated fee handling mode: `absorbed` or `passed_to_buyer`. Changing this will recalculate `buyer_price`.
+</ParamField>
+
+<ParamField body="status" type="string">
+  Updated status: `active`, `sold_out`, or `inactive`. Set to `inactive` to temporarily hide the ticket type without deleting it.
+</ParamField>
+
+<ParamField body="visibility" type="string">
+  Updated visibility: `public`, `invited_only`, or `manual`.
+</ParamField>
+
+<ParamField body="sale_start_date" type="string (ISO 8601)">
+  Updated sale start datetime. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="sale_end_date" type="string (ISO 8601)">
+  Updated sale end datetime. Must remain after `sale_start_date`. Pass `null` to clear.
+</ParamField>
+
+<ParamField body="min_quantity_per_purchase" type="integer">
+  Updated minimum quantity per purchase.
+</ParamField>
+
+<ParamField body="max_quantity_per_purchase" type="integer">
+  Updated maximum quantity per purchase. Must be ≥ `min_quantity_per_purchase`.
+</ParamField>
+
+<ParamField body="allow_installments" type="boolean">
+  Enable or disable PIX installments. When setting to `true`, also send `max_installments`.
+</ParamField>
+
+<ParamField body="max_installments" type="integer">
+  Updated maximum installment count (2–12). Required when `allow_installments` is `true`.
+</ParamField>
+
+<ParamField body="min_amount_for_installments" type="number">
+  Updated minimum `buyer_price` threshold to show the installment option. Pass `null` to remove the threshold.
+</ParamField>
+
+## Response
+
+Returns **HTTP 200 OK** with the full updated ticket type object. The shape is identical to the [create response](/api-reference/tickets/create#response).
+
+## Common Use Cases
+
+**Increase stock** — add more capacity after selling out initial allocation:
+
+```json
+{ "quantity": 150 }
+```
+
+**Adjust price** — change the price before the sale window opens:
+
+```json
+{ "price": 120.00 }
+```
+
+**Toggle availability** — deactivate a ticket type without deleting it:
+
+```json
+{ "status": "inactive" }
+```
+
+**Enable installments** — turn on PIX installments after launch:
+
+```json
+{ "allow_installments": true, "max_installments": 4 }
+```
+
+<Warning>
+  Reducing `quantity` below the number of tickets already sold (`quantity_sold`) may cause inventory inconsistencies. Always check the current `quantity_sold` value before lowering `quantity`, and never set it below the number of confirmed purchases.
+</Warning>
+
+---
+
+## Delete a Ticket Type
+
+To permanently remove a ticket type, send a `DELETE` request to the same path:
+
+```
+DELETE /api/admin/ingressos/:id
+```
+
+**Authentication required.** You must own the parent event.
+
+Returns `{ "success": true }` on success. Like event deletion, this action is permanent.
+
+<Warning>
+  Deleting a ticket type that already has confirmed registrations will leave those registrations without a valid ticket reference. Only delete ticket types that have never been purchased.
+</Warning>
+
+---
+
+## List Ticket Types
+
+Retrieve a paginated list of all ticket types across your events:
+
+```
+GET /api/admin/ingressos
+```
+
+**Authentication required.**
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="1">
+  Page number to retrieve.
+</ParamField>
+
+<ParamField query="search" type="string" default="">
+  Free-text keyword to filter ticket type names.
+</ParamField>
+
+<ParamField query="eventIds" type="string">
+  Comma-separated list of event UUIDs to filter by, e.g. `eventIds=uuid1,uuid2`. Omit to return ticket types from all your events.
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by ticket status: `active`, `sold_out`, or `inactive`. Omit to return all statuses.
+</ParamField>
+
+---
+
+## Examples
+
+<CodeGroup>
+
+```bash cURL — update price and quantity
+curl -X PATCH https://api.events-manager.com/api/admin/ingressos/t1e2c3k4-0001-4e5t-8a9b-000000000030 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "price": 120.00,
+    "quantity": 150
+  }'
+```
+
+```bash cURL — enable installments
+curl -X PATCH https://api.events-manager.com/api/admin/ingressos/t1e2c3k4-0001-4e5t-8a9b-000000000030 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "allow_installments": true,
+    "max_installments": 4,
+    "min_amount_for_installments": 50.00
+  }'
+```
+
+```bash cURL — deactivate a ticket type
+curl -X PATCH https://api.events-manager.com/api/admin/ingressos/t1e2c3k4-0001-4e5t-8a9b-000000000030 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "inactive"}'
+```
+
+```bash cURL — list ticket types for one event
+curl -G https://api.events-manager.com/api/admin/ingressos \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  --data-urlencode "eventIds=b3d2f1a0-0001-4e3c-a1b2-000000000001" \
+  --data-urlencode "status=active"
+```
+
+```bash cURL — delete a ticket type
+curl -X DELETE https://api.events-manager.com/api/admin/ingressos/t1e2c3k4-0001-4e5t-8a9b-000000000030 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+</CodeGroup>
+
+```json Sample Response — PATCH
+{
+  "id": "t1e2c3k4-0001-4e5t-8a9b-000000000030",
+  "event_id": "b3d2f1a0-0001-4e3c-a1b2-000000000001",
+  "title": "Ingresso Padrão",
+  "price": 120.00,
+  "buyer_price": 126.00,
+  "quantity": 150,
+  "quantity_sold": 38,
+  "status": "active",
+  "allow_installments": true,
+  "max_installments": 4,
+  "date_updated": "2025-07-02T11:00:00.000Z"
+}
+```
+
+```json Sample Response — DELETE
+{
+  "success": true
+}
+```
