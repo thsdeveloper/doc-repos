@@ -1,5 +1,5 @@
 ---
-title: "Set Up Transactional Email for Events Manager"
+title: "Transactional Email Setup: SMTP Configuration Guide"
 sidebarTitle: "Email Setup"
 description: "Configure SMTP to send registration confirmations, password resets, and other transactional emails from your Events Manager instance."
 ---
@@ -48,7 +48,7 @@ Set the following environment variables in your deployment environment:
 <ParamField body="EMAIL_FROM" type="string" required>
   The sender name and email address shown in the "From" header of all outgoing emails. Must use the format:
 
-  ```
+  ```text
   Display Name <address@yourdomain.com>
   ```
 
@@ -57,7 +57,7 @@ Set the following environment variables in your deployment environment:
 
 ## Local Development: Mailpit Mail Catcher
 
-During local development, the Supabase stack bundles **Mailpit** (a lightweight mail catcher) that intercepts all outgoing SMTP traffic without actually sending anything to real email addresses. The default `.env.example` is pre-configured to use it:
+During local development, Events Manager includes **Mailpit** (a lightweight mail catcher) that intercepts all outgoing SMTP traffic without actually sending anything to real email addresses. The default local configuration is pre-configured to use it:
 
 ```dotenv title="Local SMTP settings"
 SMTP_HOST=127.0.0.1

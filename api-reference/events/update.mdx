@@ -8,7 +8,7 @@ The update endpoint lets you modify any field of an event you own without re-sen
 
 ## Endpoint
 
-```
+```http
 PATCH /api/events/:id
 ```
 
@@ -17,7 +17,7 @@ PATCH /api/events/:id
 ## Path Parameters
 
 <ParamField path="id" type="string (UUID)" required>
-  The unique identifier of the event to update. You can find this in the response from [POST /api/events](/api-reference/events/create) or [GET /api/events](/api-reference/events/list-public).
+  The unique identifier of the event to update. You can find this in the response from [POST /api/events](/api-reference/events/create) or your organizer dashboard event list.
 </ParamField>
 
 ## Request Body

@@ -1,7 +1,7 @@
 ---
-title: "Set Up and Manage Your Account"
+title: "Account Setup: Profile, Password & Roles in Events Manager"
 sidebarTitle: "Account Setup"
-description: "Update your profile, change your password, and understand the account roles available in Events Manager for attendees and organizers."
+description: "Learn how to update your Events Manager profile, change your password, and understand the attendee, organizer, admin, and super admin roles."
 ---
 
 Once you've registered and confirmed your email, your Events Manager account is ready to use. This page explains how to keep your profile up to date, change your password, and understand what each account role allows you to do. All profile and password endpoints require an active session — make sure you're authenticated before making these requests.
@@ -89,7 +89,7 @@ curl -s -X PATCH https://api.eventsmanager.app/api/user/password \
 </CodeGroup>
 
 <Warning>
-  This endpoint changes your password immediately and does not ask for your current password. Ensure you are making this request from a secure, authenticated context. If you have lost access to your account, use `POST /api/auth/forgot-password` to trigger a password reset email instead.
+  This endpoint changes your password immediately and does not ask for your current password. Ensure you are making this request from a secure, authenticated context. If you have lost access to your account, use `POST /api/auth/password/request` to trigger a password reset email instead.
 </Warning>
 
 ## Account roles

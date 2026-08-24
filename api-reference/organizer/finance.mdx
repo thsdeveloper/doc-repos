@@ -1,5 +1,5 @@
 ---
-title: "Organizer Finance API Endpoints"
+title: "Organizer Finance — Revenue, Transactions & Analytics"
 sidebarTitle: "Finance"
 description: "Access revenue overview, transaction history, payout records, and analytics for your organizer account via the Events Manager finance API."
 ---
@@ -16,7 +16,7 @@ The finance endpoints give you programmatic access to every financial aspect of 
 
 Returns a financial summary for your account, optionally scoped to a date range or relative time window.
 
-```
+```http
 GET /api/organizer/finance/overview
 ```
 
@@ -44,7 +44,7 @@ Returns a financial summary object including total revenue, net revenue after fe
 
 Returns a paginated list of payment transactions for your organizer account, with filtering and sorting options.
 
-```
+```http
 GET /api/organizer/finance/transactions
 ```
 
@@ -92,7 +92,7 @@ Returns a paginated result with `data` (array of transaction records), `total`, 
 
 Returns the payout history for your organizer account. The response reflects your current `payout_status` from your organizer profile.
 
-```
+```http
 GET /api/organizer/finance/payouts
 ```
 
@@ -110,7 +110,7 @@ Returns an array of payout records, each including the payout amount, date, PIX 
 
 Returns a list of your events enriched with financial data such as total revenue, tickets sold, and net organizer amount for each.
 
-```
+```http
 GET /api/organizer/finance/events
 ```
 
@@ -124,7 +124,7 @@ Returns an array of event financial summaries including `event_id`, `title`, `sl
 
 Downloads a CSV file containing your full transaction history for accounting and reconciliation purposes.
 
-```
+```http
 GET /api/organizer/finance/export
 ```
 
@@ -145,7 +145,7 @@ The response has the following headers:
 
 Returns time-series analytics data for your account, optionally filtered to a specific event or date range.
 
-```
+```http
 GET /api/organizer/analytics
 ```
 

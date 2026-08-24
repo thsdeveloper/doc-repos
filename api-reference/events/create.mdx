@@ -8,7 +8,7 @@ Creating an event is the first step toward selling tickets on Events Manager. Yo
 
 ## Endpoint
 
-```
+```http
 POST /api/events
 ```
 
@@ -25,7 +25,7 @@ POST /api/events
 </ParamField>
 
 <ParamField body="start_date" type="string" required>
-  ISO 8601 datetime string for when the event begins, e.g. `"2025-09-15T09:00:00-03:00"`. Converted to UTC internally.
+  ISO 8601 datetime string for when the event begins, e.g. `"2025-09-15T09:00:00-03:00"`. Any UTC offset is accepted and normalized to UTC in the response.
 </ParamField>
 
 <ParamField body="end_date" type="string" required>

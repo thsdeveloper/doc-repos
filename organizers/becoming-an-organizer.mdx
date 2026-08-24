@@ -1,5 +1,5 @@
 ---
-title: "Become an Event Organizer on Events Manager"
+title: "How to Become an Event Organizer on Events Manager"
 sidebarTitle: "Become Organizer"
 description: "Apply for organizer status on Events Manager to create events, sell tickets, and access the full organizer dashboard and financial tools."
 ---
@@ -16,10 +16,10 @@ Organizer status unlocks the full power of Events Manager. As an organizer you g
     Sell tickets with flexible pricing, service fee options, sale windows, and PIX installment support.
   </Card>
   <Card title="Participant Management" icon="users">
-    Search, filter, and check in attendees from the `/admin/participantes` panel with real-time data.
+    Search, filter, and check in attendees from the Participants panel with real-time data.
   </Card>
   <Card title="Financial Dashboard" icon="chart-line">
-    Monitor gross revenue, transaction history, and payout balances from `/admin/financeiro`.
+    Monitor gross revenue, transaction history, and payout balances from the Finance dashboard.
   </Card>
 </CardGroup>
 
@@ -58,7 +58,7 @@ Submit a `POST` request to `/api/organizer/request` with your organization detai
 </ParamField>
 
 <ParamField body="website" type="string">
-  Your organization's website URL. Must be a valid `http://` or `https://` address.
+  Your organization's website URL. Must be a valid `http://` or `https://` address, or an empty string to clear the field.
 </ParamField>
 
 <ParamField body="document" type="string">

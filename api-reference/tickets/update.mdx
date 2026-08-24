@@ -8,7 +8,7 @@ After creating a ticket type you can update any of its fields at any time using 
 
 ## Endpoint
 
-```
+```http
 PATCH /api/admin/ingressos/:id
 ```
 
@@ -120,7 +120,7 @@ Returns **HTTP 200 OK** with the full updated ticket type object. The shape is i
 
 To permanently remove a ticket type, send a `DELETE` request to the same path:
 
-```
+```http
 DELETE /api/admin/ingressos/:id
 ```
 
@@ -138,7 +138,7 @@ Returns `{ "success": true }` on success. Like event deletion, this action is pe
 
 Retrieve a paginated list of all ticket types across your events:
 
-```
+```http
 GET /api/admin/ingressos
 ```
 

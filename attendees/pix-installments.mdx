@@ -1,5 +1,5 @@
 ---
-title: "Pay for Tickets in PIX Installments"
+title: "Pay for Tickets with PIX Installments on Events Manager"
 sidebarTitle: "PIX Installments"
 description: "Split your ticket purchase into up to 12 monthly PIX installments on eligible Events Manager events, with no credit card required."
 ---
@@ -141,14 +141,16 @@ When an installment becomes overdue, the platform sets a `blocked_reason` field 
   If your registration shows `blocked_reason: overdue_installments`, you must pay all overdue installments before the event organizer can check you in. Use `POST /api/installments/{id}/generate-pix` for each overdue installment to obtain fresh PIX codes.
 </Warning>
 
-<Accordion title="Will I receive a reminder before each installment is due?">
-  Email reminders are sent to the address you provided at checkout before each installment's due date. Check your spam folder if you don't see the reminder. You can also monitor all installment due dates from the [My Tickets](/attendees/my-tickets) page.
-</Accordion>
+<AccordionGroup>
+  <Accordion title="Will I receive a reminder before each installment is due?">
+    Email reminders are sent to the address you provided at checkout before each installment's due date. Check your spam folder if you don't see the reminder. You can also monitor all installment due dates from the [My Tickets](/attendees/my-tickets) page.
+  </Accordion>
 
-<Accordion title="Can I pay off the remaining installments early?">
-  Early settlement of the full remaining balance is not currently available through the self-service portal. Contact the event organizer to request early payment options.
-</Accordion>
+  <Accordion title="Can I pay off the remaining installments early?">
+    Early settlement of the full remaining balance is not currently available through the self-service portal. Contact the event organizer to request early payment options.
+  </Accordion>
 
-<Accordion title="What happens to my registration if the installment plan defaults?">
-  When a plan enters `defaulted` status, the registration's `blocked_reason` is set to `overdue_installments` and your ticket code may be restricted. Reach out to the event organizer to discuss a resolution, as manual corrections to the plan status must be made by the organizer or platform admin.
-</Accordion>
+  <Accordion title="What happens to my registration if the installment plan defaults?">
+    When a plan enters `defaulted` status your ticket code may be restricted and you may be blocked from check-in. Reach out to the event organizer to discuss a resolution — manual corrections to the plan status must be made by the organizer or platform support.
+  </Accordion>
+</AccordionGroup>

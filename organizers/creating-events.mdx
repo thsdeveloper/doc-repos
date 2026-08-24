@@ -1,5 +1,5 @@
 ---
-title: "Create and Publish Events"
+title: "How to Create and Publish Events on Events Manager"
 sidebarTitle: "Create Events"
 description: "Use the Events Manager creation wizard to set up events with custom dates, locations, cover images, and ticket types — then publish to your storefront."
 ---
@@ -25,7 +25,7 @@ Events Manager walks you through a multi-step creation wizard that breaks event 
 
   - **`title`** — The event name shown in listings and on the event page. Minimum 3 characters.
   - **`slug`** — The URL-friendly identifier (e.g., `jazz-night-2025`). Auto-generated from the title in lowercase with hyphens. Must match the regex `^[a-z0-9]+(?:-[a-z0-9]+)*$`. You can customize it, but it must be unique within your account.
-  - **`category_id`** — UUID of an event category (fetched from `GET /api/admin/event-configurations`).
+  - **`category_id`** — UUID of an event category (fetched from `GET /api/event-categories`).
   - **`description`** — Full rich-text description displayed on the event detail page.
   - **`short_description`** — A brief summary used in listing cards and meta tags.
   - **`tags`** — An array of keyword strings to improve discoverability (e.g., `["música", "jazz", "presencial"]`).

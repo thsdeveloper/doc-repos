@@ -1,5 +1,5 @@
 ---
-title: "Events Manager REST API Reference"
+title: "Events Manager REST API — Developer Reference Guide"
 sidebarTitle: "Overview"
 description: "The Events Manager REST API lets you manage events, sell tickets, process PIX payments, and access organizer data programmatically."
 ---
@@ -10,7 +10,7 @@ The Events Manager REST API gives you full programmatic access to every capabili
 
 The API is served on the **same host as the web application** under the `/api/*` path prefix. There is no separate subdomain.
 
-```
+```text
 https://<your-events-manager-host>/api
 ```
 
@@ -83,7 +83,7 @@ The API is currently **unversioned** — the path prefix is `/api/` with no vers
 | Events | Create, publish, and manage events |
 | Tickets | Define ticket types, pricing, and availability |
 | Payments | Initiate PIX checkout, handle webhooks, check payment status |
-| Organizer | Organizer profile, dashboard metrics, and team management |
+| Organizer | Organizer profile, dashboard metrics, finance, and analytics |
 
 <CardGroup cols={2}>
   <Card title="Authentication" icon="key" href="/api-reference/authentication">

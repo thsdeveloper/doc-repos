@@ -1,5 +1,5 @@
 ---
-title: "View and Manage Your Tickets"
+title: "My Tickets: View Your Registrations on Events Manager"
 sidebarTitle: "My Tickets"
 description: "Access your purchased tickets, check your registration status, and view your ticket codes from the My Tickets page in Events Manager."
 ---
@@ -115,14 +115,14 @@ The top-level `status` field summarises the overall checkout:
 
 ## What to do if your payment is stuck in 'pending'
 
-Payments are processed asynchronously. The platform reconciles pending checkouts automatically on a scheduled basis. If your registration remains `pending` for more than **10 minutes** after completing the PIX payment, try the following steps:
+Payments are processed asynchronously and status updates may take a few minutes to appear. If your registration remains `pending` for more than **10 minutes** after completing the PIX payment, try the following steps:
 
 <Steps>
   <Step title="Confirm the PIX was sent">
     Open your banking app and verify that the PIX transfer shows a **Concluído** (completed) status and the correct amount was debited from your account.
   </Step>
   <Step title="Refresh My Tickets">
-    Return to `/meus-ingressos` and reload the page. The automatic reconciliation job runs periodically and may have updated your status since you last checked.
+    Return to `/meus-ingressos` and reload the page. Payment confirmations can take a few minutes to process and your status may have updated since you last checked.
   </Step>
   <Step title="Poll the status endpoint">
     Use `GET /api/payments/checkout/status?registration_id={id}` to fetch the current status directly. A `confirmed` response means your ticket is ready even if the UI hasn't refreshed yet.
@@ -132,6 +132,8 @@ Payments are processed asynchronously. The platform reconciles pending checkouts
   </Step>
 </Steps>
 
-<Accordion title="Why does my registration show 'cancelled' even though I paid?">
-  This can happen if the checkout session expired before the payment was reconciled. The platform's reconciliation job periodically checks for payments that arrived after the initial session window. If your PIX payment has been debited but the registration is cancelled, contact the event organizer with proof of payment so they can manually confirm your registration.
-</Accordion>
+<AccordionGroup>
+  <Accordion title="Why does my registration show 'cancelled' even though I paid?">
+    This can happen if the checkout session expired before your payment was confirmed. If your PIX payment has been debited but the registration shows as cancelled, contact the event organizer with proof of payment so they can manually confirm your registration.
+  </Accordion>
+</AccordionGroup>

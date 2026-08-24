@@ -8,7 +8,7 @@ Use this endpoint to load a complete event detail page for any published event. 
 
 ## Endpoint
 
-```
+```http
 GET /api/events/slug/:slug
 ```
 
@@ -211,5 +211,5 @@ curl https://api.events-manager.com/api/events/slug/workshop-ux-design-2025
 ```
 
 <Note>
-  The `online_url` field is only visible in the response after a buyer completes a confirmed purchase. For events returned by the public listing, this field is always `null`.
+  For `online` or `hybrid` events, the `online_url` field may be `null` in the public listing response until the organizer has published the link. Access to the streaming URL after purchase is managed through the registration record.
 </Note>

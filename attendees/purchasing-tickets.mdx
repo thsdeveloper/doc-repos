@@ -1,5 +1,5 @@
 ---
-title: "Purchase Event Tickets with PIX"
+title: "How to Purchase Tickets with PIX on Events Manager"
 sidebarTitle: "Buy Tickets"
 description: "Select your ticket type, enter attendee details, and complete your payment via PIX or PIX installments on the Events Manager checkout."
 ---
@@ -109,13 +109,15 @@ After your checkout is submitted, your registration moves through the following 
 | `checked_in`      | You have been checked in at the event venue.                                         |
 
 <Note>
-  The system automatically reconciles pending checkouts against the payment gateway on a periodic schedule. If your status does not update within a few minutes after paying, visit [My Tickets](/attendees/my-tickets) and use the status refresh option, or contact the event organizer.
+  Payment confirmations can take a few minutes to process. If your status does not update shortly after completing a PIX payment, visit [My Tickets](/attendees/my-tickets) and reload the page, or contact the event organizer.
 </Note>
 
-<Accordion title="What happens if I close the browser before finishing payment?">
-  Your checkout session is saved. You can return to the event page and start a new checkout. Uncompleted sessions are automatically reconciled and cleaned up by the platform after a grace period. If your PIX payment went through but your registration still shows `pending`, wait a few minutes for automatic reconciliation to update the status, or check [My Tickets](/attendees/my-tickets).
-</Accordion>
+<AccordionGroup>
+  <Accordion title="What happens if I close the browser before finishing payment?">
+    Your checkout session is saved. You can return to the event page and start a new checkout. If your PIX payment went through but your registration still shows `pending`, wait a few minutes for the status to update, or check [My Tickets](/attendees/my-tickets).
+  </Accordion>
 
-<Accordion title="Can I buy tickets for someone else?">
-  Yes. The `participantInfo` fields (name, email, phone, document) represent the attendee — you can enter another person's details. The ticket code will be sent to the email address you provide in that form.
-</Accordion>
+  <Accordion title="Can I buy tickets for someone else?">
+    Yes. The `participantInfo` fields (name, email, phone, document) represent the attendee — you can enter another person's details. The ticket code will be sent to the email address you provide in that form.
+  </Accordion>
+</AccordionGroup>

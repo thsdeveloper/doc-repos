@@ -8,7 +8,7 @@ Deleting an event permanently removes it and all associated data from the platfo
 
 ## Endpoint
 
-```
+```http
 DELETE /api/events/:id
 ```
 
@@ -53,6 +53,6 @@ curl -X DELETE https://api.events-manager.com/api/events/b3d2f1a0-0001-4e3c-a1b2
 
 A successful deletion returns an HTTP `204` status with no response body:
 
-```
+```text
 HTTP/1.1 204 No Content
 ```

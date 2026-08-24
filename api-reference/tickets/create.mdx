@@ -8,7 +8,7 @@ A ticket type defines a purchasable tier for your event — for example, `"Ingre
 
 ## Endpoint
 
-```
+```http
 POST /api/admin/ingressos
 ```
 
@@ -137,7 +137,7 @@ Returns **HTTP 201 Created** with the full ticket type object.
 | `400 Bad Request` | — | Validation failed (e.g. `max_installments` missing when `allow_installments` is `true`, or `sale_end_date` before `sale_start_date`). |
 
 <Note>
-  The platform applies a percentage-based service fee configured by the platform administrator. The exact `buyer_price` depends on the live fee settings at the time of ticket creation. Check `GET /api/admin/event-configurations` to see the current fee structure.
+  The platform applies a percentage-based service fee to each ticket. The exact `buyer_price` is calculated automatically at the time of ticket creation and reflects the fee model in effect. The `buyer_price` field in the response always shows the final amount that will be charged to buyers at checkout.
 </Note>
 
 ## Example

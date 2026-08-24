@@ -1,5 +1,5 @@
 ---
-title: "Manage Event Participants and Check-Ins"
+title: "Manage Event Participants and Check-Ins — Organizer"
 sidebarTitle: "Participants"
 description: "Search, filter, and manage attendees across all your events. Update participant details, track check-ins, and monitor payment status."
 ---
@@ -87,7 +87,7 @@ GET /api/admin/participantes?eventIds=a1b2c3d4-e5f6-7890-abcd-ef1234567890&regis
 GET /api/admin/participantes/b2c3d4e5-f6a7-8901-bcde-f12345678901
 ```
 
-Returns the full registration record including ticket details, payment history, installment plan (if any), and internal notes.
+Returns the full registration record including ticket details, payment history, installment plan (if any), and your organizer notes.
 
 ## Editing participant details
 
@@ -143,7 +143,7 @@ To download a CSV of all participants matching your current filters, use:
 GET /api/admin/participantes/export
 ```
 
-The response is a `text/csv` file named `participantes.csv` containing all participant records for your organizer account. Apply query parameters (same as the list endpoint) to export a filtered subset.
+The response is a `text/csv` file named `participantes.csv` containing all participant records for your organizer account.
 
 <Tip>
   Use the export feature before your event to prepare check-in staff with a printed backup list, especially for venues with limited internet connectivity.

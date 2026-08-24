@@ -8,7 +8,7 @@ The public events endpoint lets anyone browse published events without needing a
 
 ## Endpoint
 
-```
+```http
 GET /api/events/public
 ```
 
@@ -97,7 +97,7 @@ The response object contains pagination metadata alongside an array of event obj
 
 You can fetch the list of all event categories (for building filter UIs or navigation menus) with a separate unauthenticated request:
 
-```
+```http
 GET /api/event-categories
 ```
 
@@ -107,7 +107,7 @@ Returns `{ data: EventCategory[] }` where each category contains `id`, `name`, `
 
 Once you have a slug from the listing response, you can retrieve the full event detail — including all ticket types — without authentication:
 
-```
+```http
 GET /api/events/slug/:slug
 ```
 

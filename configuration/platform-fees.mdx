@@ -1,21 +1,14 @@
 ---
-title: "Platform Fee and Pricing Configuration"
+title: "Platform Fees: Pricing and Fee Configuration Guide"
 sidebarTitle: "Platform Fees"
 description: "Understand how Events Manager calculates platform fees, gateway fees, and organizer net revenue for every paid ticket transaction."
 ---
 
-Every ticket sale on Events Manager involves three financial parties: the **attendee** who pays, the **organizer** who receives the proceeds, and the **platform** that facilitates the transaction. The fee model defines exactly how money flows between these parties and which fees each one absorbs. Platform administrators configure these values globally, and they apply to every ticket sale processed through the system.
+Every ticket sale on Events Manager involves three financial parties: the **attendee** who pays, the **organizer** who receives the proceeds, and the **platform** that facilitates the transaction. The fee model defines exactly how money flows between these parties and which fees each one absorbs. Platform administrators configure these values globally through the admin panel, and they apply to every ticket sale processed through the system.
 
 ## Fee Model Overview
 
-The `EventConfigurations` record holds all platform-level fee settings. You can retrieve the current values via:
-
-```http title="Get current platform configuration"
-GET /api/admin/event-configurations
-Authorization: Bearer <admin-token>
-```
-
-The following fees are configurable:
+The `EventConfigurations` record holds all platform-level fee settings. Super admins can view and update these values from the **Admin → Platform Settings** area. The following fees are configurable:
 
 | Field | Type | Description |
 |---|---|---|
@@ -28,9 +21,12 @@ The following fees are configurable:
 | `boleto_fee_fixed` | `number` | Fixed fee (in BRL) per boleto transaction. |
 | `payout_fee_fixed` | `number` | Fixed fee (in BRL) deducted from each payout disbursement to an organizer. |
 | `minimum_payout` | `number` | Minimum balance (in BRL) an organizer must accumulate before a payout can be initiated. |
+| `payouts_enabled` | `boolean` | Whether payout disbursements to organizers are currently enabled on the platform. |
+| `convenience_fee_calculation_method` | `string` | Whether fees are added to the buyer's price (`buyer_pays`) or deducted from the organizer payout (`organizer_absorbs`). |
+| `allow_free_events` | `boolean` | Whether organizers are permitted to create free events. |
 
 <Note>
-  Only `platform_fee_percentage` and `pix_fee_fixed` are currently active in live payment processing. Card and boleto fees are reserved for future payment methods.
+  Only `platform_fee_percentage` and `pix_fee_fixed` are currently active in live payment processing. Card and boleto fee fields are reserved for future payment methods.
 </Note>
 
 ## Convenience Fee Calculation Methods
@@ -116,33 +112,5 @@ When the platform disburses funds to an organizer via PIX, two additional settin
 </ParamField>
 
 <Tip>
-  Payout disbursements are initiated by the super admin from the `/super-admin` area. Organizers can view their pending balance and payout history in their **Finances** dashboard.
+  Payout disbursements are managed by the super admin from the admin panel. Organizers can view their pending balance and payout history in their **Finances** dashboard.
 </Tip>
-
-## Viewing the Current Configuration
-
-Super admins can view and update platform fee settings through the admin panel. The current configuration is also exposed read-only to authenticated admin users via the API:
-
-```http title="Retrieve platform fee configuration"
-GET /api/admin/event-configurations
-Authorization: Bearer <admin-token>
-```
-
-```json title="Example response"
-{
-  "id": 1,
-  "platform_fee_percentage": 5,
-  "pix_fee_fixed": 0.99,
-  "card_fee_percentage": 2.99,
-  "card_fee_fixed": 0.39,
-  "card_installment_2_6_percentage": 4.99,
-  "card_installment_7_12_percentage": 6.99,
-  "boleto_fee_fixed": 3.49,
-  "payout_fee_fixed": 2.00,
-  "minimum_payout": 50.00,
-  "payouts_enabled": true,
-  "convenience_fee_calculation_method": "buyer_pays",
-  "payment_gateway": "abacatepay",
-  "allow_free_events": true
-}
-```

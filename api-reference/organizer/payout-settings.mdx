@@ -16,7 +16,7 @@ Before you can receive proceeds from ticket sales, you must register a PIX key w
 
 ## Endpoint
 
-```
+```http
 PATCH /api/organizer/payout-settings
 ```
 
@@ -63,7 +63,7 @@ PATCH /api/organizer/payout-settings
 
 The `payout_status` field on your organizer profile follows this state machine:
 
-```
+```text
 not_configured
       │
       ▼  (PATCH /api/organizer/payout-settings)

@@ -12,7 +12,7 @@ This endpoint is called **by AbacatePay**, not by your application directly. Whe
 
 ## Endpoint
 
-```
+```http
 POST /api/payments/webhooks/abacatepay
 ```
 
@@ -22,7 +22,7 @@ All requests must pass **both** of the following checks or the server responds w
 
 ### 1. Webhook Secret Query Parameter
 
-AbacatePay must include `?webhookSecret=YOUR_SECRET` in the request URL. This value must exactly match the `ABACATEPAY_WEBHOOK_SECRET` environment variable configured on the server.
+AbacatePay must include `?webhookSecret=YOUR_SECRET` in the request URL. This value must exactly match the webhook secret configured on the API server.
 
 ### 2. HMAC-SHA256 Signature Header
 
@@ -41,9 +41,11 @@ The request must include either an `X-Webhook-Signature` or `X-Abacate-Signature
 | `checkout.disputed` | A dispute was opened against a checkout payment. |
 | `checkout.lost` | A checkout dispute was decided in the payer's favour. |
 | `transparent.completed` | A transparent (direct) PIX charge was paid. |
-| `transparent.refunded` | A transparent charge was refunded. |
-| `transparent.disputed` | A dispute was opened on a transparent charge. |
+| `transparent.refunded` | A transparent PIX charge was refunded. |
+| `transparent.disputed` | A dispute was opened on a transparent PIX charge. |
 | `transparent.lost` | A transparent charge dispute was lost. |
+| `transparent.expired` | A transparent PIX charge expired without payment. |
+| `transparent.cancelled` | A transparent PIX charge was cancelled. |
 | `payout.completed` | A payout to an organizer's PIX key was successful. |
 | `payout.failed` | A payout attempt failed. |
 | `transfer.completed` | A transfer operation completed. |
@@ -95,6 +97,14 @@ The request must include either an `X-Webhook-Signature` or `X-Abacate-Signature
 
     <ParamField body="data.checkout.methods" type="array of strings">
       Payment methods used (e.g. `["pix"]`).
+    </ParamField>
+  </ParamField>
+
+  <ParamField body="data.payerInformation" type="object">
+    Optional payer metadata, present on some `checkout.*` events.
+
+    <ParamField body="data.payerInformation.method" type="string">
+      Payment method used by the payer (e.g. `"pix"`).
     </ParamField>
   </ParamField>
 
@@ -171,9 +181,9 @@ The request must include either an `X-Webhook-Signature` or `X-Abacate-Signature
 
 1. Log in to your AbacatePay dashboard.
 2. Navigate to **Webhooks** → **Add Endpoint**.
-3. Set the URL to `https://api.events-manager.app/api/payments/webhooks/abacatepay?webhookSecret=YOUR_SECRET`.
+3. Set the URL to `https://api.events-manager.app/api/payments/webhooks/abacatepay?webhookSecret=YOUR_SECRET`, replacing `YOUR_SECRET` with the webhook secret configured on the API server.
 4. Select all event types you want to receive (see the table above for the full list).
-5. Copy the signing secret shown after saving and set it as the `ABACATEPAY_WEBHOOK_SECRET` environment variable on your API server.
+5. Copy the signing secret shown after saving and configure it on the API server so the HMAC signature check can be performed.
 
 ## Example Payload
 

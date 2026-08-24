@@ -1,5 +1,5 @@
 ---
-title: "Organizer Profile API Endpoints"
+title: "Organizer Profile — Create, Update & Logo Upload"
 sidebarTitle: "Profile"
 description: "GET and manage your organizer profile with the Events Manager API. Covers profile creation, partial updates, and logo image upload endpoints."
 ---
@@ -16,7 +16,7 @@ Your organizer profile is the foundation of your presence on Events Manager. It 
 
 Retrieve the organizer profile associated with the currently authenticated user.
 
-```
+```http
 GET /api/organizer/profile
 ```
 
@@ -80,7 +80,7 @@ GET /api/organizer/profile
 
 Submit a request to become an organizer. Use this endpoint when a regular user wants to apply for organizer status. The platform will review the request and activate the account.
 
-```
+```http
 POST /api/organizer/request
 ```
 
@@ -122,7 +122,7 @@ POST /api/organizer/request
 
 Create an organizer profile directly. Functionally similar to the request endpoint; `name` is required and `description` has no minimum length constraint.
 
-```
+```http
 POST /api/organizer/profile
 ```
 
@@ -138,7 +138,7 @@ Same fields as `POST /api/organizer/request` above, except `description` does no
 
 Update one or more fields on your existing organizer profile. All fields are optional — only send the fields you want to change.
 
-```
+```http
 PATCH /api/organizer/profile
 ```
 
@@ -180,7 +180,7 @@ PATCH /api/organizer/profile
 
 Upload a new logo image for your organizer profile using a `multipart/form-data` request. This endpoint requires the organizer role.
 
-```
+```http
 POST /api/organizer/logo
 Content-Type: multipart/form-data
 ```

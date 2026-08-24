@@ -1,5 +1,5 @@
 ---
-title: "How the PIX Checkout Flow Works"
+title: "PIX Checkout Flow: From Ticket Selection to Confirmation"
 sidebarTitle: "Checkout Flow"
 description: "Understand the end-to-end PIX checkout process on Events Manager, from ticket selection to payment confirmation and ticket issuance."
 ---
@@ -61,7 +61,7 @@ When an attendee buys a ticket on Events Manager, the platform orchestrates a mu
   <Step title="AbacatePay sends webhook to Events Manager">
     Once AbacatePay detects the PIX transfer, it fires a `checkout.completed` webhook event to your registered endpoint:
 
-    ```
+    ```text
     POST /api/payments/webhooks/abacatepay?webhookSecret=YOUR_SECRET
     ```
 

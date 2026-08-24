@@ -1,5 +1,5 @@
 ---
-title: "Authenticate API Requests to Events Manager"
+title: "Authentication Guide for the Events Manager REST API"
 sidebarTitle: "Authentication"
 description: "Pass a Bearer token in the Authorization header or rely on session cookies set by the login endpoint to authenticate Events Manager API requests."
 ---
@@ -31,14 +31,16 @@ curl -b cookies.txt https://<host>/api/auth/me
 
 ## Method 2 — Bearer Token (Server-to-Server)
 
-For backend clients or scripts, extract `access_token` from the login response body and include it in the `Authorization` header of every subsequent request.
+For backend clients or scripts, save the response cookies from the login call and extract the `access_token` cookie value. Pass it in the `Authorization` header of every subsequent request.
 
 <CodeGroup>
-```bash title="Login and capture token"
-TOKEN=$(curl -s -X POST https://<host>/api/auth/login \
+```bash title="Login and capture access_token cookie"
+# Save cookies to a file, then read the access_token value
+curl -s -c cookies.txt -X POST https://<host>/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "you@example.com", "password": "s3cr3tPass"}' \
-  | jq -r '.user.access_token // empty')
+  -d '{"email": "you@example.com", "password": "s3cr3tPass"}'
+
+TOKEN=$(grep 'access_token' cookies.txt | awk '{print $NF}')
 ```
 
 ```bash title="Authenticated request using Bearer token"
@@ -48,7 +50,7 @@ curl https://<host>/api/auth/me \
 </CodeGroup>
 
 <Note>
-  The login response includes the `access_token` inside the `user` object only when email confirmation is not required. For the bearer-token workflow, log in once, capture the token, and store it securely (e.g. an environment variable or secrets manager). Never commit tokens to source control.
+  The access token is delivered exclusively as an `httpOnly` cookie — it is not present in the JSON response body. For the bearer-token workflow, capture the cookie value after login, store it securely (e.g. an environment variable or secrets manager), and never commit tokens to source control.
 </Note>
 
 ## Verifying Your Authentication State

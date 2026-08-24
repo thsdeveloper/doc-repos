@@ -1,5 +1,5 @@
 ---
-title: "Payments Overview: PIX Checkout on Events Manager"
+title: "Payments Overview: PIX and AbacatePay on Events Manager"
 sidebarTitle: "Overview"
 description: "Events Manager processes ticket payments via PIX using AbacatePay. Learn about payment flow, supported methods, and fee structure."
 ---
@@ -14,13 +14,13 @@ The payment flow follows a strict server-side pattern to protect sensitive crede
 Browser / Mobile App
         │
         ▼
-Events Manager API  (Fastify)
+Events Manager API
         │
         ▼
 AbacatePay Gateway  (hosted checkout or transparent PIX)
         │
         ▼
-Supabase / Postgres  (ledger, registrations, installments)
+Platform Database  (ledger, registrations, installments)
 ```
 
 The API layer handles fee calculation, inventory reservation, and webhook validation. The gateway layer is interchangeable — swapping from `mock` to `abacatepay` mode requires only an environment variable change, with no code modifications needed.
